@@ -21,7 +21,6 @@ export async function obtenerUsuarioPorEmail(
   email: string
 ): Promise<Usuario | null> {
   try {
-    // ---- Sintaxis SQL corregida ----
     const query = `
       SELECT id, email, nombre_completo, rol, departamento_id, telegram_chat_id, correo_google, activo
       FROM usuarios
@@ -38,7 +37,6 @@ export async function obtenerUsuarioPorEmail(
 
 export async function obtenerUsuarioPorId(id: string): Promise<Usuario | null> {
   try {
-    // ---- Sintaxis SQL corregida ----
     const query = `
       SELECT id, email, nombre_completo, rol, departamento_id, telegram_chat_id, correo_google, activo
       FROM usuarios
@@ -63,7 +61,6 @@ export async function crearUsuario(
   try {
     const passwordHash = await hashPassword(password);
 
-    // ---- Sintaxis SQL corregida ----
     const queryInsertUser = `
       INSERT INTO usuarios (email, password_hash, nombre_completo, rol, departamento_id, activo)
       VALUES ($1, $2, $3, $4, $5, true)
@@ -79,7 +76,6 @@ export async function crearUsuario(
 
     const nuevoUsuario = result.rows[0] as Usuario;
 
-    // ---- Sintaxis SQL corregida ----
     const queryInsertConfig = `
       INSERT INTO configuracion_notificaciones (usuario_id, telegram_habilitado, email_habilitado, calendario_habilitado, dias_anticipacion)
       VALUES ($1, true, true, true, 3)
