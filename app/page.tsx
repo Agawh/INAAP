@@ -1,11 +1,12 @@
+// /app/page.tsx
 "use client";
 
 import * as React from "react";
-import { useRouter } from "next/navigation";
+// import { useRouter } from "next/navigation"; // Ya no lo necesitamos para el login
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { motion } from "framer-motion"; // Para la animación
+import { motion } from "framer-motion";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -25,8 +26,9 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
+import { iniciarSesion } from "@/app/actions/autenticacion.actions"; // <-- 1. Importamos la acción
 
-// Esquema de validación de Zod (sin cambios)
+// Esquema de validación (sin cambios)
 const formSchema = z.object({
   email: z
     .string()
@@ -36,29 +38,44 @@ const formSchema = z.object({
 });
 
 export default function LoginPage() {
-  const router = useRouter();
+  // const router = useRouter(); // Ya no es necesario aquí
   const [isLoading, setIsLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
-  // Configuración del formulario (sin cambios)
+  // Configuración del formulario
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       email: "admin@inatur.gob.ve",
-      password: "Admin1G23!", // Corrección basada en el README, la 'G' debe ser '1'
+      // ---- 2. Corregimos la contraseña por defecto
+      password: "admin123", // Basado en el script 02-seed-data.sql
     },
   });
 
-  // Lógica de envío (sin cambios)
+  // ---- 3. Lógica de envío actualizada ----
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsLoading(true);
     setError(null);
 
+    // Creamos un FormData para pasarlo a la Server Action
+    const formData = new FormData();
+    formData.append("email", values.email);
+    formData.append("password", values.password);
+
     try {
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      router.push("/dashboard");
+      // Llamamos a nuestra acción de servidor
+      const resultado = await iniciarSesion(formData);
+
+      if (!resultado?.success) {
+        // Si la acción devuelve un error (ej. credenciales inválidas)
+        setError(resultado?.error || "Credenciales inválidas.");
+      }
+      // Si el inicio de sesión es exitoso, la acción (iniciarSesion)
+      // se encargará de redirigir al usuario al "/dashboard".
+      // No necesitamos hacer router.push() aquí.
     } catch (apiError) {
-      setError("Credenciales inválidas. Por favor intente de nuevo.");
+      // Captura de error general
+      setError("Ocurrió un error. Por favor intente de nuevo.");
     } finally {
       setIsLoading(false);
     }
@@ -66,10 +83,6 @@ export default function LoginPage() {
 
   return (
     <main className="flex min-h-screen w-full items-center justify-center bg-gradient-to-b from-background to-muted p-4">
-      {/*
-        Contenedor de Animación:
-        Hará que la tarjeta aparezca desde abajo (y: 50) y se desvanezca (opacity: 0)
-      */}
       <motion.div
         initial={{ opacity: 0, y: 50 }}
         animate={{ opacity: 1, y: 0 }}
@@ -77,16 +90,14 @@ export default function LoginPage() {
         className="w-full max-w-md"
       >
         <Card className="shadow-xl">
-          {" "}
-          {/* Añadimos una sombra más pronunciada */}
           <CardHeader className="text-center">
-            {/* Aquí es donde pones el logo de tu empresa.
-              Asegúrate de que la imagen esté en INAAPP/public/logo-inatur.png
+            {/* Cambiamos el logo placeholder por el logo de Inatur
+              que está en /public/Inaturlogo.png
             */}
             <img
-              src="/placeholder-logo.svg" // <-- CAMBIA ESTO por "/logo-inatur.png"
+              src="/Inaturlogo.png"
               alt="Logo INATUR"
-              className="mx-auto mb-4 h-20 w-auto" // Puedes ajustar el tamaño
+              className="mx-auto mb-4 h-20 w-auto"
             />
             <CardTitle className="text-2xl font-bold text-primary">
               Bienvenido
@@ -95,11 +106,14 @@ export default function LoginPage() {
           </CardHeader>
           <CardContent>
             <Form {...form}>
+              {/* Cambiamos el <form> para que use la Server Action.
+                Ya no necesitamos onSubmit, usamos el 'action' del formulario.
+              */}
               <form
                 onSubmit={form.handleSubmit(onSubmit)}
                 className="space-y-6"
               >
-                {/* Email */}
+                {/* Email (sin cambios) */}
                 <FormField
                   control={form.control}
                   name="email"
@@ -118,7 +132,7 @@ export default function LoginPage() {
                   )}
                 />
 
-                {/* Contraseña */}
+                {/* Contraseña (sin cambios) */}
                 <FormField
                   control={form.control}
                   name="password"
@@ -145,7 +159,7 @@ export default function LoginPage() {
                   </p>
                 )}
 
-                {/* Botón */}
+                {/* Botón (sin cambios) */}
                 <Button type="submit" className="w-full" disabled={isLoading}>
                   {isLoading ? <Spinner className="mr-2" /> : "Iniciar Sesión"}
                 </Button>
