@@ -1,35 +1,38 @@
-import { sql } from "@/lib/db"
-import type { Departamento } from "@/types"
+// /services/departamentos.service.ts
+import { sql } from "@/lib/db";
+import type { Departamento } from "@/types";
 
 export class DepartamentosService {
   static async obtenerTodos(): Promise<Departamento[]> {
     try {
-      const result = await sql`
+      // ---- Sintaxis SQL corregida ----
+      const query = `
         SELECT id, nombre, descripcion
         FROM departamentos
         ORDER BY nombre ASC
-      `
-
-      return result as Departamento[]
+      `;
+      const result = await sql(query);
+      return result.rows as Departamento[];
     } catch (error) {
-      console.error("[v0] Error obteniendo departamentos:", error)
-      throw error
+      console.error("[v0] Error obteniendo departamentos:", error);
+      throw error;
     }
   }
 
   static async obtenerPorId(id: string): Promise<Departamento | null> {
     try {
-      const result = await sql`
+      // ---- Sintaxis SQL corregida ----
+      const query = `
         SELECT id, nombre, descripcion
         FROM departamentos
-        WHERE id = ${id}
+        WHERE id = $1
         LIMIT 1
-      `
-
-      return result.length > 0 ? (result[0] as Departamento) : null
+      `;
+      const result = await sql(query, [id]);
+      return result.rows.length > 0 ? (result.rows[0] as Departamento) : null;
     } catch (error) {
-      console.error("[v0] Error obteniendo departamento:", error)
-      throw error
+      console.error("[v0] Error obteniendo departamento:", error);
+      throw error;
     }
   }
 }
