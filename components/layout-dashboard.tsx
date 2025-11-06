@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link"; // Importar Link
 import {
   Home,
   Users,
@@ -8,6 +9,11 @@ import {
   Settings,
   LogOut,
   ChevronDown,
+  ChevronRight,
+  UserPlus,
+  UserCheck,
+  CalendarPlus,
+  CalendarClock,
 } from "lucide-react";
 import {
   SidebarProvider,
@@ -20,7 +26,16 @@ import {
   SidebarMenuButton,
   SidebarFooter,
   SidebarInset,
-} from "@/components/ui/sidebar"; //
+  SidebarRail,
+  SidebarMenuSub,
+  SidebarMenuSubItem,
+  SidebarMenuSubButton,
+} from "@/components/ui/sidebar";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -28,19 +43,46 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"; //
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"; //
-import { Button } from "@/components/ui/button"; //
+} from "@/components/ui/dropdown-menu";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
 import { cerrarSesion } from "@/app/actions/autenticacion.actions";
-import type { Usuario } from "@/types"; //
+import type { Usuario } from "@/types";
+import { cn } from "@/lib/utils";
 
-// Función para obtener las iniciales del nombre
+// (Función getInitials sin cambios)
 function getInitials(name: string) {
   return name
     .split(" ")
     .map((n) => n[0])
     .join("")
     .toUpperCase();
+}
+
+// (Componente MenuCollapsibleTrigger sin cambios)
+function MenuCollapsibleTrigger({
+  label,
+  icon,
+  tooltip,
+}: {
+  label: string;
+  icon: React.ReactNode;
+  tooltip: string;
+}) {
+  return (
+    <CollapsibleTrigger asChild>
+      <SidebarMenuButton
+        tooltip={tooltip}
+        className="h-9 group/menu-button w-full justify-between"
+      >
+        <div className="flex items-center gap-2">
+          {icon}
+          <span>{label}</span>
+        </div>
+        <ChevronRight className="size-4 shrink-0 text-muted-foreground transition-transform duration-200 group-data-[state=open]/menu-button:rotate-90" />
+      </SidebarMenuButton>
+    </CollapsibleTrigger>
+  );
 }
 
 export function LayoutDashboard({
@@ -60,60 +102,123 @@ export function LayoutDashboard({
 
   return (
     <SidebarProvider defaultOpen>
-      <Sidebar>
+      <Sidebar variant="inset" collapsible="icon">
+        <SidebarRail />
         <SidebarHeader>
-          <img
-            src="/Inaturlogo.png" //
-            alt="Logo INATUR"
-            className="h-10 w-auto"
-          />
+          <div className="flex h-12 items-center justify-center">
+            <img
+              src="/Inaturlogo.png"
+              alt="Logo INATUR"
+              className="h-12 w-auto object-contain"
+            />
+          </div>
         </SidebarHeader>
         <SidebarContent>
           <SidebarMenu>
             <SidebarMenuItem>
-              <SidebarMenuButton isActive>
-                <Home className="size-4" />
-                <span>Inicio (Dashboard)</span>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-            <SidebarMenuItem>
-              <SidebarMenuButton>
-                <Calendar className="size-4" />
-                <span>Gestión de Actividades</span>
+              {/* --- ¡CORRECCIÓN 'asChild' AQUÍ! --- */}
+              {/* El <Link> va DENTRO del botón con asChild */}
+              <SidebarMenuButton
+                asChild
+                isActive
+                tooltip="Inicio"
+                className="h-9"
+              >
+                <Link href="/dashboard">
+                  <Home className="size-4" />
+                  <span>Inicio</span>
+                </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>
 
-            {/* --- Menú solo para Superusuario --- */}
-            {usuario.rol === "superusuario" && ( //
-              <>
+            {/* --- Menú Desplegable: Actividades --- */}
+            <Collapsible asChild>
+              <SidebarMenuItem>
+                <MenuCollapsibleTrigger
+                  label="Gestión de Actividades"
+                  tooltip="Actividades"
+                  icon={<Calendar className="size-4" />}
+                />
+                <CollapsibleContent>
+                  <SidebarMenuSub>
+                    <SidebarMenuSubItem>
+                      {/* --- ¡CORRECCIÓN 'asChild' AQUÍ! --- */}
+                      {/* SidebarMenuSubButton ya es un <a>, solo pasamos href */}
+                      <SidebarMenuSubButton href="/dashboard/actividades/crear">
+                        <CalendarPlus className="size-4" />
+                        <span>Crear actividad</span>
+                      </SidebarMenuSubButton>
+                    </SidebarMenuSubItem>
+                    <SidebarMenuSubItem>
+                      {/* --- ¡CORRECCIÓN 'asChild' AQUÍ! --- */}
+                      <SidebarMenuSubButton href="/dashboard/actividades">
+                        <CalendarClock className="size-4" />
+                        <span>Ver cronograma</span>
+                      </SidebarMenuSubButton>
+                    </SidebarMenuSubItem>
+                  </SidebarMenuSub>
+                </CollapsibleContent>
+              </SidebarMenuItem>
+            </Collapsible>
+
+            {/* --- Menú Desplegable: Superusuario --- */}
+            {usuario.rol === "superusuario" && (
+              <Collapsible asChild>
                 <SidebarMenuItem>
-                  <SidebarMenuButton>
-                    <Users className="size-4" />
-                    <span>Gestión de Usuarios</span>
-                  </SidebarMenuButton>
+                  <MenuCollapsibleTrigger
+                    label="Gestión de Usuarios"
+                    tooltip="Usuarios"
+                    icon={<Users className="size-4" />}
+                  />
+                  <CollapsibleContent>
+                    <SidebarMenuSub>
+                      <SidebarMenuSubItem>
+                        {/* --- ¡CORRECCIÓN 'asChild' AQUÍ! --- */}
+                        <SidebarMenuSubButton href="/dashboard/usuarios">
+                          <UserPlus className="size-4" />
+                          <span>Agregar jefe de departamento</span>
+                        </SidebarMenuSubButton>
+                      </SidebarMenuSubItem>
+                      <SidebarMenuSubItem>
+                        {/* --- ¡CORRECCIÓN 'asChild' AQUÍ! --- */}
+                        <SidebarMenuSubButton href="/dashboard/usuarios">
+                          <UserCheck className="size-4" />
+                          <span>Agregar trabajador</span>
+                        </SidebarMenuSubButton>
+                      </SidebarMenuSubItem>
+                    </SidebarMenuSub>
+                  </CollapsibleContent>
                 </SidebarMenuItem>
-                <SidebarMenuItem>
-                  <SidebarMenuButton>
+              </Collapsible>
+            )}
+
+            {/* Menú de Configuración (solo Superusuario) */}
+            {usuario.rol === "superusuario" && (
+              <SidebarMenuItem>
+                {/* --- ¡CORRECCIÓN 'asChild' AQUÍ! --- */}
+                <SidebarMenuButton
+                  asChild
+                  tooltip="Configuración"
+                  className="h-9"
+                >
+                  <Link href="/dashboard/configuracion">
                     <Settings className="size-4" />
-                    <span>Configuración Sistema</span>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              </>
+                    <span>Configuración</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
             )}
           </SidebarMenu>
         </SidebarContent>
-        <SidebarFooter>
-          {/* Aquí puedes añadir información extra o links */}
-        </SidebarFooter>
+        <SidebarFooter />
       </Sidebar>
 
       <SidebarInset>
         {/* --- Header Principal --- */}
         <header className="sticky top-0 z-10 flex h-14 items-center justify-between gap-4 border-b bg-background/80 px-4 backdrop-blur-sm sm:px-6">
           <SidebarTrigger className="md:hidden" />
-
           <div className="flex-1">
-            {/* Podemos poner un Breadcrumb o título aquí */}
+            {/* Espacio para título de página o breadcrumbs */}
           </div>
 
           {/* --- Menú de Usuario --- */}
@@ -170,7 +275,7 @@ export function LayoutDashboard({
           </DropdownMenu>
         </header>
 
-        {/* --- Contenido de la Página (Con fondo mejorado) --- */}
+        {/* --- Contenido de la Página --- */}
         <main className="flex-1 overflow-y-auto p-4 sm:p-6 bg-muted/30 dark:bg-muted/10">
           {children}
         </main>

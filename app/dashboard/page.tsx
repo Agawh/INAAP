@@ -1,8 +1,24 @@
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"; //
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardContent,
+  CardDescription,
+} from "@/components/ui/card"; //
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"; //
-import { Users, CalendarCheck, Activity } from "lucide-react";
+import { Button } from "@/components/ui/button"; //
+import { Avatar, AvatarFallback } from "@/components/ui/avatar"; //
+import {
+  Users,
+  CalendarCheck,
+  Activity,
+  PlusCircle,
+  UserPlus,
+  FileText,
+} from "lucide-react";
+import { Badge } from "@/components/ui/badge"; //
 
 export default async function DashboardPage() {
   const session = await auth();
@@ -26,7 +42,7 @@ export default async function DashboardPage() {
         </p>
       </div>
 
-      {/* --- Contenido Específico por Rol (Diseño mejorado) --- */}
+      {/* --- Alerta de Rol --- */}
       {usuario.rol === "superusuario" && (
         <Alert
           variant="default"
@@ -43,17 +59,7 @@ export default async function DashboardPage() {
         </Alert>
       )}
 
-      {usuario.rol === "jefe_departamento" && ( //
-        <Alert>
-          <Activity className="size-4" />
-          <AlertTitle>Modo Jefe de Departamento</AlertTitle>
-          <AlertDescription>
-            Puedes crear y asignar actividades a tu departamento.
-          </AlertDescription>
-        </Alert>
-      )}
-
-      {/* --- Sección de Estadísticas (Ejemplo) --- */}
+      {/* --- Sección de Estadísticas (3 Columnas) --- */}
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -77,6 +83,104 @@ export default async function DashboardPage() {
           <CardContent>
             <div className="text-2xl font-bold">4</div>
             <p className="text-xs text-muted-foreground">(Simulado)</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">
+              Reportes Generados
+            </CardTitle>
+            <FileText className="size-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">8</div>
+            <p className="text-xs text-muted-foreground">(Simulado)</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* --- Sección de Acciones y Actividad Reciente --- */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        {/* Columna de Acciones Rápidas (Con Colores) */}
+        <Card className="lg:col-span-1">
+          <CardHeader>
+            <CardTitle>Acciones Rápidas</CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-3">
+            <Button className="w-full justify-start">
+              <PlusCircle className="mr-2 size-4" />
+              Crear Nueva Actividad
+            </Button>
+            {usuario.rol === "superusuario" && (
+              <Button variant="secondary" className="w-full justify-start">
+                <UserPlus className="mr-2 size-4" />
+                Añadir Nuevo Usuario
+              </Button>
+            )}
+            <Button variant="outline" className="w-full justify-start">
+              <FileText className="mr-2 size-4" />
+              Generar Reporte
+            </Button>
+          </CardContent>
+        </Card>
+
+        {/* Columna de Actividad Reciente (Con Colores) */}
+        <Card className="lg:col-span-2">
+          <CardHeader>
+            <CardTitle>Actividad Reciente</CardTitle>
+            <CardDescription>
+              Últimos cambios y actualizaciones en el sistema.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-4">
+            <div className="flex items-center gap-3">
+              <Avatar className="size-9">
+                <AvatarFallback className="bg-primary/10 text-primary dark:bg-primary/20 dark:text-primary-foreground">
+                  AD
+                </AvatarFallback>
+              </Avatar>
+              <div className="text-sm">
+                <p className="font-medium">Admin</p>
+                <p className="text-muted-foreground">
+                  Creó la actividad: "Feria de Turismo 2025".
+                </p>
+              </div>
+              <time className="ml-auto text-xs text-muted-foreground">
+                Hace 5m
+              </time>
+            </div>
+            <div className="flex items-center gap-3">
+              <Avatar className="size-9">
+                <AvatarFallback className="bg-accent/10 text-accent-foreground dark:bg-accent/20 dark:text-accent">
+                  JP
+                </AvatarFallback>
+              </Avatar>
+              <div className="text-sm">
+                <p className="font-medium">Jefe de Promoción</p>
+                <p className="text-muted-foreground">
+                  Completó la actividad: "Diseño de Folletos".
+                </p>
+              </div>
+              <Badge variant="outline" className="ml-auto">
+                Completada
+              </Badge>
+            </div>
+            <div className="flex items-center gap-3">
+              <Avatar className="size-9">
+                <AvatarFallback className="bg-primary/10 text-primary dark:bg-primary/20 dark:text-primary-foreground">
+                  AD
+                </AvatarFallback>
+              </Avatar>
+              <div className="text-sm">
+                <p className="font-medium">Admin</p>
+                <p className="text-muted-foreground">
+                  Añadió un nuevo usuario: "Analista de Redes".
+                </p>
+              </div>
+              <time className="ml-auto text-xs text-muted-foreground">
+                Hace 3h
+              </time>
+            </div>
           </CardContent>
         </Card>
       </div>
