@@ -6,7 +6,7 @@ import { sql } from "@/lib/db";
 import { verifyPassword } from "@/lib/auth";
 import type { Usuario } from "@/types";
 
-// Esquema de validación para el login, similar al de tu página
+// Esquema de validación para el login
 const loginSchema = z.object({
   email: z.string().email(),
   password: z.string().min(1),
@@ -17,32 +17,31 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     Credentials({
       async authorize(credentials) {
         try {
-          // 1. Validar que las credenciales tengan la forma correcta
+          // 1. Validar credenciales
           const parsedCredentials = loginSchema.parse(credentials);
           const { email, password } = parsedCredentials;
 
-          // 2. Buscar al usuario en la base de datos (incluyendo el hash de la contraseña)
-          // Usamos una consulta directa porque 'obtenerUsuarioPorEmail' no devuelve el password_hash
+          // 2. Buscar al usuario
 
-          // ---- CORRECCIÓN AQUÍ ----
-          // La función 'sql' debe usarse con comillas invertidas (template literal)
-          const result = await sql` 
+          // ---- ¡CORRECCIÓN APLICADA AQUÍ! ----
+          // Se usa la sintaxis sql(query, [params]) que espera tu lib/db.ts
+          const query = `
             SELECT id, email, password_hash, nombre_completo, rol, departamento_id, activo
             FROM usuarios
-            WHERE email = ${email}
+            WHERE email = $1
             LIMIT 1
           `;
-
+          const result = await sql(query, [email]);
           const usuario = result.rows[0];
 
           if (!usuario || !usuario.password_hash) {
             console.log("Auth: Usuario no encontrado.");
-            return null; // Usuario no encontrado
+            return null;
           }
 
           if (!usuario.activo) {
             console.log("Auth: Usuario inactivo.");
-            return null; // Usuario inactivo
+            return null;
           }
 
           // 3. Verificar la contraseña
@@ -53,11 +52,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
           if (!passwordValida) {
             console.log("Auth: Contraseña incorrecta.");
-            return null; // Contraseña incorrecta
+            return null;
           }
 
-          // 4. Retornar el objeto usuario (sin la contraseña)
-          // Estos datos se pasan al callback 'jwt'
+          // 4. Retornar el objeto usuario para la sesión
           return {
             id: usuario.id,
             email: usuario.email,
@@ -66,34 +64,33 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           };
         } catch (error) {
           console.error("Error en authorize:", error);
-          return null; // Fallo en la validación o error de BD
+          return null;
         }
       },
     }),
   ],
   callbacks: {
-    // El 'jwt' callback se usa para añadir datos al token (JWT)
+    // Añadimos 'rol' al token
     async jwt({ token, user }) {
       if (user) {
-        // Al iniciar sesión, 'user' contiene los datos de 'authorize'
         token.id = user.id;
-        token.rol = (user as any).rol; // 'user' puede no tener 'rol' por defecto
+        token.rol = user.rol; // Esto funciona gracias al archivo next-auth.d.ts
       }
       return token;
     },
-    // El 'session' callback se usa para pasar datos del token a la sesión del cliente
+    // Añadimos 'rol' a la sesión
     async session({ session, token }) {
       if (session.user && token.id) {
         session.user.id = token.id as string;
-        session.user.rol = token.rol as Usuario["rol"]; // Usamos nuestro tipo 'Rol'
+        session.user.rol = token.rol as Usuario["rol"];
       }
       return session;
     },
   },
   pages: {
-    signIn: "/", // Página de inicio de sesión (tu app/page.tsx)
+    signIn: "/", // Página de inicio de sesión es la raíz
   },
   session: {
-    strategy: "jwt", // Usamos JWTs para la sesión
+    strategy: "jwt",
   },
 });
