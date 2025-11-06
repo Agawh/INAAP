@@ -2,7 +2,6 @@
 "use client";
 
 import * as React from "react";
-// import { useRouter } from "next/navigation"; // Ya no lo necesitamos para el login
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -26,9 +25,9 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
-import { iniciarSesion } from "@/app/actions/autenticacion.actions"; // <-- 1. Importamos la acción
+import { iniciarSesion } from "@/app/actions/autenticacion.actions"; // Importamos la acción
 
-// Esquema de validación (sin cambios)
+// Esquema de validación
 const formSchema = z.object({
   email: z
     .string()
@@ -38,7 +37,6 @@ const formSchema = z.object({
 });
 
 export default function LoginPage() {
-  // const router = useRouter(); // Ya no es necesario aquí
   const [isLoading, setIsLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
@@ -46,13 +44,13 @@ export default function LoginPage() {
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      email: "admin@inatur.gob.ve",
-      // ---- 2. Corregimos la contraseña por defecto
-      password: "admin123", // Basado en el script 02-seed-data.sql
+      // ---- ¡Valores por defecto actualizados al usuario temporal! ----
+      email: "temp@inatur.gob.ve",
+      password: "inatur123",
     },
   });
 
-  // ---- 3. Lógica de envío actualizada ----
+  // Lógica de envío que llama a la Server Action
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsLoading(true);
     setError(null);
@@ -72,7 +70,6 @@ export default function LoginPage() {
       }
       // Si el inicio de sesión es exitoso, la acción (iniciarSesion)
       // se encargará de redirigir al usuario al "/dashboard".
-      // No necesitamos hacer router.push() aquí.
     } catch (apiError) {
       // Captura de error general
       setError("Ocurrió un error. Por favor intente de nuevo.");
@@ -91,9 +88,7 @@ export default function LoginPage() {
       >
         <Card className="shadow-xl">
           <CardHeader className="text-center">
-            {/* Cambiamos el logo placeholder por el logo de Inatur
-              que está en /public/Inaturlogo.png
-            */}
+            {/* Logo de Inatur */}
             <img
               src="/Inaturlogo.png"
               alt="Logo INATUR"
@@ -106,14 +101,11 @@ export default function LoginPage() {
           </CardHeader>
           <CardContent>
             <Form {...form}>
-              {/* Cambiamos el <form> para que use la Server Action.
-                Ya no necesitamos onSubmit, usamos el 'action' del formulario.
-              */}
               <form
                 onSubmit={form.handleSubmit(onSubmit)}
                 className="space-y-6"
               >
-                {/* Email (sin cambios) */}
+                {/* Email */}
                 <FormField
                   control={form.control}
                   name="email"
@@ -132,7 +124,7 @@ export default function LoginPage() {
                   )}
                 />
 
-                {/* Contraseña (sin cambios) */}
+                {/* Contraseña */}
                 <FormField
                   control={form.control}
                   name="password"
@@ -159,7 +151,7 @@ export default function LoginPage() {
                   </p>
                 )}
 
-                {/* Botón (sin cambios) */}
+                {/* Botón */}
                 <Button type="submit" className="w-full" disabled={isLoading}>
                   {isLoading ? <Spinner className="mr-2" /> : "Iniciar Sesión"}
                 </Button>
