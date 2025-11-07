@@ -1,3 +1,5 @@
+// /app/dashboard/usuarios/page.tsx
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import {
@@ -6,7 +8,7 @@ import {
   CardTitle,
   CardContent,
   CardDescription,
-} from "@/components/ui/card"; //
+} from "@/components/ui/card";
 import {
   Table,
   TableHeader,
@@ -14,19 +16,20 @@ import {
   TableHead,
   TableRow,
   TableCell,
-} from "@/components/ui/table"; //
-import { Button } from "@/components/ui/button"; //
-import { Badge } from "@/components/ui/badge"; //
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"; //
+} from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertTriangle, PlusCircle, MoreHorizontal } from "lucide-react";
-import { DepartamentosService } from "@/services/departamentos.service"; //
-import { UsuariosService } from "@/services/usuarios.service"; //
+import { DepartamentosService } from "@/services/departamentos.service";
+import { UsuariosService } from "@/services/usuarios.service";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"; //
+} from "@/components/ui/dropdown-menu";
+import { BusquedaUsuarios } from "@/components/busqueda-usuarios";
 
 // Función para traducir roles
 function traducirRol(rol: string) {
@@ -42,12 +45,19 @@ function traducirRol(rol: string) {
   }
 }
 
-export default async function GestionUsuariosPage() {
+// Definimos las props de la página para recibir searchParams
+type PageProps = {
+  searchParams?: {
+    q?: string; // 'q' será nuestro parámetro de búsqueda
+  };
+};
+
+export default async function GestionUsuariosPage({ searchParams }: PageProps) {
   const session = await auth();
+  const filtro = searchParams?.q || ""; // Obtenemos el filtro de la URL
 
   // 1. Verificación de Seguridad
   if (!session?.user || session.user.rol !== "superusuario") {
-    // Si no es superusuario, mostrar un error de acceso
     return (
       <Alert variant="destructive">
         <AlertTriangle className="h-4 w-4" />
@@ -61,11 +71,10 @@ export default async function GestionUsuariosPage() {
 
   // 2. Obtener Datos
   const [usuarios, departamentos] = await Promise.all([
-    UsuariosService.obtenerTodos(),
+    UsuariosService.obtenerTodos(filtro),
     DepartamentosService.obtenerTodos(),
   ]);
 
-  // Crear un mapa para buscar nombres de departamentos fácilmente
   const deptMap = new Map(departamentos.map((d) => [d.id, d.nombre]));
 
   return (
@@ -79,9 +88,11 @@ export default async function GestionUsuariosPage() {
             Crear, editar y administrar usuarios del sistema.
           </p>
         </div>
-        <Button>
-          <PlusCircle className="mr-2 h-4 w-4" />
-          Crear Usuario
+        <Button asChild>
+          <Link href="/dashboard/usuarios/crear">
+            <PlusCircle className="mr-2 h-4 w-4" />
+            Crear Usuario
+          </Link>
         </Button>
       </div>
 
@@ -89,7 +100,9 @@ export default async function GestionUsuariosPage() {
         <CardHeader>
           <CardTitle>Usuarios Registrados</CardTitle>
           <CardDescription>
-            Un total de {usuarios.length} usuarios encontrados.
+            <div className="mt-4">
+              <BusquedaUsuarios />
+            </div>
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -97,18 +110,28 @@ export default async function GestionUsuariosPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>Nombre Completo</TableHead>
+                <TableHead>Cédula</TableHead>
                 <TableHead>Email</TableHead>
                 <TableHead>Rol</TableHead>
                 <TableHead>Departamento</TableHead>
                 <TableHead className="text-right">Acciones</TableHead>
-              </TableRow>
+              </TableRow>{" "}
+              {/* <-- ¡ETIQUETA CORREGIDA! (Era </ROW>) --> */}
             </TableHeader>
             <TableBody>
+              {usuarios.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={6} className="h-24 text-center">
+                    No se encontraron usuarios con ese filtro.
+                  </TableCell>
+                </TableRow>
+              )}
               {usuarios.map((usuario) => (
                 <TableRow key={usuario.id}>
                   <TableCell className="font-medium">
                     {usuario.nombre_completo}
                   </TableCell>
+                  <TableCell>{usuario.cedula}</TableCell>
                   <TableCell>{usuario.email}</TableCell>
                   <TableCell>
                     <Badge

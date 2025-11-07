@@ -13,7 +13,6 @@ export async function verifyPassword(
   password: string,
   hash: string
 ): Promise<boolean> {
-  // Versión limpia sin logs
   return bcrypt.compare(password, hash);
 }
 
@@ -22,7 +21,7 @@ export async function obtenerUsuarioPorEmail(
 ): Promise<Usuario | null> {
   try {
     const query = `
-      SELECT id, email, nombre_completo, rol, departamento_id, telegram_chat_id, correo_google, activo
+      SELECT id, email, nombre_completo, rol, departamento_id, telegram_chat_id, correo_google, activo, cedula
       FROM usuarios
       WHERE email = $1 AND activo = true
       LIMIT 1
@@ -37,8 +36,9 @@ export async function obtenerUsuarioPorEmail(
 
 export async function obtenerUsuarioPorId(id: string): Promise<Usuario | null> {
   try {
+    // --- ¡CAMBIO AQUÍ! (Añadido 'cedula') ---
     const query = `
-      SELECT id, email, nombre_completo, rol, departamento_id, telegram_chat_id, correo_google, activo
+      SELECT id, email, nombre_completo, rol, departamento_id, telegram_chat_id, correo_google, activo, cedula
       FROM usuarios
       WHERE id = $1 AND activo = true
       LIMIT 1
@@ -56,15 +56,17 @@ export async function crearUsuario(
   password: string,
   nombre_completo: string,
   rol: string,
-  departamento_id: string
+  departamento_id: string,
+  cedula: string // <-- ¡AÑADIDO!
 ): Promise<Usuario> {
   try {
     const passwordHash = await hashPassword(password);
 
+    // --- ¡CAMBIO AQUÍ! (Añadido 'cedula' y '$6') ---
     const queryInsertUser = `
-      INSERT INTO usuarios (email, password_hash, nombre_completo, rol, departamento_id, activo)
-      VALUES ($1, $2, $3, $4, $5, true)
-      RETURNING id, email, nombre_completo, rol, departamento_id, telegram_chat_id, correo_google, activo
+      INSERT INTO usuarios (email, password_hash, nombre_completo, rol, departamento_id, cedula, activo)
+      VALUES ($1, $2, $3, $4, $5, $6, true)
+      RETURNING *
     `;
     const result = await sql(queryInsertUser, [
       email,
@@ -72,10 +74,12 @@ export async function crearUsuario(
       nombre_completo,
       rol,
       departamento_id,
+      cedula,
     ]);
 
     const nuevoUsuario = result.rows[0] as Usuario;
 
+    // --- (Esto ya estaba corregido) ---
     const queryInsertConfig = `
       INSERT INTO configuracion_notificaciones (usuario_id, telegram_habilitado, email_habilitado, calendario_habilitado, dias_anticipacion)
       VALUES ($1, true, true, true, 3)

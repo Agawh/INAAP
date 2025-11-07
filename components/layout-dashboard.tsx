@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import Link from "next/link"; // Importar Link
+import Link from "next/link";
 import {
   Home,
   Users,
@@ -14,6 +14,7 @@ import {
   UserCheck,
   CalendarPlus,
   CalendarClock,
+  List, // <-- Icono para "Ver todos"
 } from "lucide-react";
 import {
   SidebarProvider,
@@ -71,9 +72,10 @@ function MenuCollapsibleTrigger({
 }) {
   return (
     <CollapsibleTrigger asChild>
+      {/* --- ¡CAMBIO! Aumentamos el tamaño --- */}
       <SidebarMenuButton
         tooltip={tooltip}
-        className="h-9 group/menu-button w-full justify-between"
+        className="h-10 group/menu-button w-full justify-between"
       >
         <div className="flex items-center gap-2">
           {icon}
@@ -116,13 +118,12 @@ export function LayoutDashboard({
         <SidebarContent>
           <SidebarMenu>
             <SidebarMenuItem>
-              {/* --- ¡CORRECCIÓN 'asChild' AQUÍ! --- */}
-              {/* El <Link> va DENTRO del botón con asChild */}
+              {/* --- ¡CAMBIO! Aumentamos el tamaño --- */}
               <SidebarMenuButton
                 asChild
                 isActive
                 tooltip="Inicio"
-                className="h-9"
+                className="h-10"
               >
                 <Link href="/dashboard">
                   <Home className="size-4" />
@@ -142,16 +143,21 @@ export function LayoutDashboard({
                 <CollapsibleContent>
                   <SidebarMenuSub>
                     <SidebarMenuSubItem>
-                      {/* --- ¡CORRECCIÓN 'asChild' AQUÍ! --- */}
-                      {/* SidebarMenuSubButton ya es un <a>, solo pasamos href */}
-                      <SidebarMenuSubButton href="/dashboard/actividades/crear">
+                      {/* --- ¡CAMBIO! Aumentamos el tamaño --- */}
+                      <SidebarMenuSubButton
+                        href="/dashboard/actividades/crear"
+                        className="h-10"
+                      >
                         <CalendarPlus className="size-4" />
                         <span>Crear actividad</span>
                       </SidebarMenuSubButton>
                     </SidebarMenuSubItem>
                     <SidebarMenuSubItem>
-                      {/* --- ¡CORRECCIÓN 'asChild' AQUÍ! --- */}
-                      <SidebarMenuSubButton href="/dashboard/actividades">
+                      {/* --- ¡CAMBIO! Aumentamos el tamaño --- */}
+                      <SidebarMenuSubButton
+                        href="/dashboard/actividades"
+                        className="h-10"
+                      >
                         <CalendarClock className="size-4" />
                         <span>Ver cronograma</span>
                       </SidebarMenuSubButton>
@@ -172,16 +178,31 @@ export function LayoutDashboard({
                   />
                   <CollapsibleContent>
                     <SidebarMenuSub>
+                      {/* --- ¡NUEVO ENLACE! --- */}
                       <SidebarMenuSubItem>
-                        {/* --- ¡CORRECCIÓN 'asChild' AQUÍ! --- */}
-                        <SidebarMenuSubButton href="/dashboard/usuarios">
+                        <SidebarMenuSubButton
+                          href="/dashboard/usuarios"
+                          className="h-10"
+                        >
+                          <List className="size-4" />
+                          <span>Ver todos</span>
+                        </SidebarMenuSubButton>
+                      </SidebarMenuSubItem>
+
+                      <SidebarMenuSubItem>
+                        <SidebarMenuSubButton
+                          href="/dashboard/usuarios/crear"
+                          className="h-10"
+                        >
                           <UserPlus className="size-4" />
                           <span>Agregar jefe de departamento</span>
                         </SidebarMenuSubButton>
                       </SidebarMenuSubItem>
                       <SidebarMenuSubItem>
-                        {/* --- ¡CORRECCIÓN 'asChild' AQUÍ! --- */}
-                        <SidebarMenuSubButton href="/dashboard/usuarios">
+                        <SidebarMenuSubButton
+                          href="/dashboard/usuarios/crear"
+                          className="h-1tranajador"
+                        >
                           <UserCheck className="size-4" />
                           <span>Agregar trabajador</span>
                         </SidebarMenuSubButton>
@@ -195,11 +216,11 @@ export function LayoutDashboard({
             {/* Menú de Configuración (solo Superusuario) */}
             {usuario.rol === "superusuario" && (
               <SidebarMenuItem>
-                {/* --- ¡CORRECCIÓN 'asChild' AQUÍ! --- */}
+                {/* --- ¡CAMBIO! Aumentamos el tamaño --- */}
                 <SidebarMenuButton
                   asChild
                   tooltip="Configuración"
-                  className="h-9"
+                  className="h-10"
                 >
                   <Link href="/dashboard/configuracion">
                     <Settings className="size-4" />

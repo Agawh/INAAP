@@ -3,16 +3,32 @@ import { sql } from "@/lib/db";
 import type { Usuario, ConfiguracionNotificaciones } from "@/types";
 
 export class UsuariosService {
-  static async obtenerTodos(): Promise<Usuario[]> {
+  // --- ¡ACTUALIZADO! Con filtro y JOIN ---
+  static async obtenerTodos(filtro?: string): Promise<Usuario[]> {
     try {
-      // ---- Sintaxis SQL corregida ----
-      const query = `
-        SELECT id, email, nombre_completo, rol, departamento_id, telegram_chat_id, correo_google, activo
-        FROM usuarios
-        WHERE activo = true
-        ORDER BY nombre_completo ASC
+      let query = `
+        SELECT u.id, u.email, u.nombre_completo, u.rol, u.departamento_id, 
+               u.telegram_chat_id, u.correo_google, u.activo, u.cedula
+        FROM usuarios u
+        LEFT JOIN departamentos d ON u.departamento_id = d.id
+        WHERE u.activo = true
       `;
-      const result = await sql(query);
+      const params: string[] = [];
+
+      if (filtro) {
+        // Añadimos la lógica de búsqueda por nombre, email, cédula o departamento
+        query += ` AND (
+          u.nombre_completo ILIKE $1 OR 
+          u.email ILIKE $1 OR
+          u.cedula ILIKE $1 OR
+          d.nombre ILIKE $1
+        )`;
+        params.push(`%${filtro}%`); // ILIKE con '%' busca patrones
+      }
+
+      query += ` ORDER BY u.nombre_completo ASC`;
+
+      const result = await sql(query, params);
       return result.rows as Usuario[];
     } catch (error) {
       console.error("[v0] Error obteniendo usuarios:", error);
@@ -24,9 +40,9 @@ export class UsuariosService {
     departamentoId: string
   ): Promise<Usuario[]> {
     try {
-      // ---- Sintaxis SQL corregida ----
+      // --- ¡ACTUALIZADO! (Añadido 'cedula') ---
       const query = `
-        SELECT id, email, nombre_completo, rol, departamento_id, telegram_chat_id, correo_google, activo
+        SELECT id, email, nombre_completo, rol, departamento_id, telegram_chat_id, correo_google, activo, cedula
         FROM usuarios
         WHERE departamento_id = $1 AND activo = true
         ORDER BY nombre_completo ASC
@@ -44,7 +60,6 @@ export class UsuariosService {
     config: Partial<ConfiguracionNotificaciones>
   ): Promise<ConfiguracionNotificaciones> {
     try {
-      // ---- Sintaxis SQL corregida ----
       const query = `
         UPDATE configuracion_notificaciones
         SET 
@@ -77,7 +92,6 @@ export class UsuariosService {
     usuarioId: string
   ): Promise<ConfiguracionNotificaciones | null> {
     try {
-      // ---- Sintaxis SQL corregida ----
       const query = `
         SELECT id, usuario_id, telegram_habilitado, email_habilitado, calendario_habilitado, dias_anticipacion
         FROM configuracion_notificaciones
