@@ -1,77 +1,81 @@
 "use client";
 
-// --- ¡CAMBIO 1: Importaciones corregidas para React 19! ---
+// --- ¡CORRECCIÓN DE IMPORTACIÓN! ---
 import * as React from "react";
 import { useActionState } from "react"; // Se importa de 'react'
 import { useFormStatus } from "react-dom"; // Se importa de 'react-dom'
 import { useRouter } from "next/navigation";
-import { AlertTriangle, Save, Phone } from "lucide-react";
+import { AlertTriangle, Save } from "lucide-react";
 
-import type { Departamento, Rol } from "@/types"; //
+import type { Departamento, Rol, Usuario } from "@/types";
 import {
   type EstadoFormulario,
-  accionCrearUsuario,
+  accionEditarUsuario,
 } from "@/app/actions/usuarios.actions";
-import { cn } from "@/lib/utils"; //
-import { Button } from "@/components/ui/button"; //
-import { Card, CardContent, CardFooter } from "@/components/ui/card"; //
-import { Input } from "@/components/ui/input"; //
-import { Label } from "@/components/ui/label"; //
+import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardFooter } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select"; //
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"; //
-import { Spinner } from "@/components/ui/spinner"; //
+} from "@/components/ui/select";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Spinner } from "@/components/ui/spinner";
 
-// Opciones de Roles (basado en types/index.ts)
+// (const roles sin cambios)
 const roles: { value: Rol; label: string }[] = [
   { value: "jefe_departamento", label: "Jefe de Departamento" },
   { value: "miembro_departamento", label: "Miembro de Departamento" },
   { value: "superusuario", label: "Superusuario" },
 ];
 
-// Componente para el botón de envío
-function BotonCrear() {
+function BotonEditar() {
   const { pending } = useFormStatus();
   return (
     <Button type="submit" disabled={pending}>
       {pending ? (
         <>
           <Spinner className="mr-2 h-4 w-4" />
-          Guardando...
+          Actualizando...
         </>
       ) : (
         <>
           <Save className="mr-2 h-4 w-4" />
-          Guardar Usuario
+          Actualizar Usuario
         </>
       )}
     </Button>
   );
 }
 
-type FormularioCrearUsuarioProps = {
+// Props que el formulario recibirá
+type FormularioEditarUsuarioProps = {
   departamentos: Departamento[];
+  usuario: Usuario; // El usuario a editar
 };
 
-export function FormularioCrearUsuario({
+export function FormularioEditarUsuario({
   departamentos,
-}: FormularioCrearUsuarioProps) {
+  usuario,
+}: FormularioEditarUsuarioProps) {
   const router = useRouter();
   const estadoInicial: EstadoFormulario = { mensaje: "", errores: {} };
 
-  // Hook corregido
-  const [estado, dispatch] = useActionState(accionCrearUsuario, estadoInicial);
+  // Vinculamos la acción con el ID del usuario
+  const accionEditarConId = accionEditarUsuario.bind(null, usuario.id);
+
+  const [estado, dispatch] = useActionState(accionEditarConId, estadoInicial);
 
   return (
     <form action={dispatch}>
       <Card>
         <CardContent className="grid grid-cols-1 gap-6 pt-6 md:grid-cols-2">
-          {/* Alerta de Error General (sin cambios) */}
+          {/* Alerta de Error General */}
           {estado.mensaje &&
             estado.errores &&
             Object.keys(estado.errores).length === 0 && (
@@ -88,8 +92,8 @@ export function FormularioCrearUsuario({
             <Input
               id="nombre_completo"
               name="nombre_completo"
+              defaultValue={usuario.nombre_completo}
               aria-invalid={!!estado.errores?.nombre_completo}
-              // --- ¡CAMBIO! Validación de cliente (solo letras y espacios) ---
               pattern="[a-zA-Z\sñÑáéíóúÁÉÍÓÚ]*"
               title="El nombre solo debe contener letras y espacios"
             />
@@ -102,14 +106,12 @@ export function FormularioCrearUsuario({
 
           {/* Cédula */}
           <div className="grid gap-2">
-            {/* --- ¡CAMBIO! Etiqueta y placeholder limpios --- */}
             <Label htmlFor="cedula">Cédula</Label>
             <Input
               id="cedula"
               name="cedula"
-              placeholder="12345678"
+              defaultValue={usuario.cedula}
               aria-invalid={!!estado.errores?.cedula}
-              // --- ¡CAMBIO! Validación de cliente (solo números) ---
               type="text"
               pattern="[0-9]*"
               inputMode="numeric"
@@ -129,7 +131,7 @@ export function FormularioCrearUsuario({
               id="email"
               name="email"
               type="email"
-              placeholder="usuario@inatur.gob.ve"
+              defaultValue={usuario.email}
               aria-invalid={!!estado.errores?.email}
             />
             {estado.errores?.email && (
@@ -141,11 +143,12 @@ export function FormularioCrearUsuario({
 
           {/* Contraseña */}
           <div className="grid gap-2">
-            <Label htmlFor="password">Contraseña</Label>
+            <Label htmlFor="password">Nueva Contraseña</Label>
             <Input
               id="password"
               name="password"
               type="password"
+              placeholder="Dejar en blanco para no cambiar"
               aria-invalid={!!estado.errores?.password}
             />
             {estado.errores?.password && (
@@ -157,15 +160,13 @@ export function FormularioCrearUsuario({
 
           {/* Teléfono */}
           <div className="grid gap-2">
-            {/* --- ¡CAMBIO! Etiqueta y placeholder limpios --- */}
             <Label htmlFor="telefono">Teléfono</Label>
             <Input
               id="telefono"
               name="telefono"
               type="tel"
-              placeholder="04123456789"
+              defaultValue={usuario.telefono || ""}
               aria-invalid={!!estado.errores?.telefono}
-              // --- ¡CAMBIO! Validación de cliente (solo números) ---
               pattern="[0-9]*"
               inputMode="numeric"
               title="El teléfono solo debe contener números"
@@ -180,7 +181,7 @@ export function FormularioCrearUsuario({
           {/* Rol */}
           <div className="grid gap-2">
             <Label htmlFor="rol">Rol</Label>
-            <Select name="rol" defaultValue="">
+            <Select name="rol" defaultValue={usuario.rol}>
               <SelectTrigger id="rol" aria-invalid={!!estado.errores?.rol}>
                 <SelectValue placeholder="Seleccione un rol" />
               </SelectTrigger>
@@ -202,7 +203,10 @@ export function FormularioCrearUsuario({
           {/* Departamento */}
           <div className="grid gap-2 md:col-span-2">
             <Label htmlFor="departamento_id">Departamento</Label>
-            <Select name="departamento_id" defaultValue="">
+            <Select
+              name="departamento_id"
+              defaultValue={usuario.departamento_id}
+            >
               <SelectTrigger
                 id="departamento_id"
                 aria-invalid={!!estado.errores?.departamento_id}
@@ -229,7 +233,7 @@ export function FormularioCrearUsuario({
           <Button type="button" variant="outline" onClick={() => router.back()}>
             Cancelar
           </Button>
-          <BotonCrear />
+          <BotonEditar />
         </CardFooter>
       </Card>
     </form>

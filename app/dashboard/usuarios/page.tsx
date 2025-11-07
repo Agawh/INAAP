@@ -30,8 +30,9 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { BusquedaUsuarios } from "@/components/busqueda-usuarios";
+import { BotonEliminarUsuario } from "@/components/boton-eliminar-usuario";
 
-// Función para traducir roles
+// (función traducirRol sin cambios)
 function traducirRol(rol: string) {
   switch (rol) {
     case "superusuario":
@@ -45,19 +46,23 @@ function traducirRol(rol: string) {
   }
 }
 
-// Definimos las props de la página para recibir searchParams
 type PageProps = {
-  searchParams?: {
-    q?: string; // 'q' será nuestro parámetro de búsqueda
-  };
+  searchParams?: { q?: string };
 };
 
 export default async function GestionUsuariosPage({ searchParams }: PageProps) {
   const session = await auth();
-  const filtro = searchParams?.q || ""; // Obtenemos el filtro de la URL
+  const filtro = searchParams?.q || "";
 
-  // 1. Verificación de Seguridad
-  if (!session?.user || session.user.rol !== "superusuario") {
+  // --- ¡CORRECCIÓN DE ERROR 'session' is possibly 'null'! ---
+  // 1. Verificación de Sesión
+  if (!session?.user) {
+    // Esto debería ser manejado por el middleware, pero es una doble seguridad
+    redirect("/");
+  }
+
+  // 2. Verificación de Rol
+  if (session.user.rol !== "superusuario") {
     return (
       <Alert variant="destructive">
         <AlertTriangle className="h-4 w-4" />
@@ -69,7 +74,10 @@ export default async function GestionUsuariosPage({ searchParams }: PageProps) {
     );
   }
 
-  // 2. Obtener Datos
+  // 3. Ahora 'session.user.id' es seguro de usar
+  const idUsuarioLogueado = session.user.id;
+
+  // 4. Obtener Datos
   const [usuarios, departamentos] = await Promise.all([
     UsuariosService.obtenerTodos(filtro),
     DepartamentosService.obtenerTodos(),
@@ -79,6 +87,7 @@ export default async function GestionUsuariosPage({ searchParams }: PageProps) {
 
   return (
     <div className="flex flex-col gap-6">
+      {/* (Cabecera de la página sin cambios) */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">
@@ -97,6 +106,7 @@ export default async function GestionUsuariosPage({ searchParams }: PageProps) {
       </div>
 
       <Card>
+        {/* (Cabecera de Card con Búsqueda sin cambios) */}
         <CardHeader>
           <CardTitle>Usuarios Registrados</CardTitle>
           <CardDescription>
@@ -111,17 +121,17 @@ export default async function GestionUsuariosPage({ searchParams }: PageProps) {
               <TableRow>
                 <TableHead>Nombre Completo</TableHead>
                 <TableHead>Cédula</TableHead>
+                <TableHead>Teléfono</TableHead>
                 <TableHead>Email</TableHead>
                 <TableHead>Rol</TableHead>
                 <TableHead>Departamento</TableHead>
                 <TableHead className="text-right">Acciones</TableHead>
-              </TableRow>{" "}
-              {/* <-- ¡ETIQUETA CORREGIDA! (Era </ROW>) --> */}
+              </TableRow>
             </TableHeader>
             <TableBody>
               {usuarios.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={6} className="h-24 text-center">
+                  <TableCell colSpan={7} className="h-24 text-center">
                     No se encontraron usuarios con ese filtro.
                   </TableCell>
                 </TableRow>
@@ -132,6 +142,7 @@ export default async function GestionUsuariosPage({ searchParams }: PageProps) {
                     {usuario.nombre_completo}
                   </TableCell>
                   <TableCell>{usuario.cedula}</TableCell>
+                  <TableCell>{usuario.telefono || "N/A"}</TableCell>
                   <TableCell>{usuario.email}</TableCell>
                   <TableCell>
                     <Badge
@@ -153,10 +164,18 @@ export default async function GestionUsuariosPage({ searchParams }: PageProps) {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem>Editar</DropdownMenuItem>
-                        <DropdownMenuItem className="text-destructive">
-                          Eliminar
+                        <DropdownMenuItem asChild>
+                          <Link
+                            href={`/dashboard/usuarios/${usuario.id}/editar`}
+                          >
+                            Editar
+                          </Link>
                         </DropdownMenuItem>
+                        <BotonEliminarUsuario
+                          usuarioId={usuario.id}
+                          nombreUsuario={usuario.nombre_completo}
+                          idUsuarioLogueado={idUsuarioLogueado}
+                        />
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>

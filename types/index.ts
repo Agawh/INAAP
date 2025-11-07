@@ -23,13 +23,15 @@ export interface Usuario {
   email: string;
   nombre_completo: string;
   rol: Rol;
-  cedula: string; // <-- ¡AÑADIDO!
+  cedula: string;
+  telefono?: string; // <-- ¡AÑADIDO! (opcional)
   departamento_id: string;
   telegram_chat_id?: string;
   correo_google?: string;
   activo: boolean;
 }
 
+// ... (El resto de interfaces: Actividad, Notificacion, DTOs, etc. sin cambios) ...
 export interface Actividad {
   id: string;
   titulo: string;
