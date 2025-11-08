@@ -12,30 +12,57 @@ export class ActividadesService {
     usuarioId: string
   ): Promise<Actividad> {
     try {
-      // Crear actividad
-      // ---- Sintaxis SQL corregida ----
-      const queryActividad = `
-        INSERT INTO actividades (titulo, descripcion, tipo, fecha_inicio, fecha_fin, estado, prioridad, creado_por, asignado_a)
-        VALUES ($1, $2, $3, $4, $5, 'pendiente', $6, $7, $8)
-        RETURNING *
-      `;
-      const paramsActividad = [
+      // --- SECCIÓN ACTUALIZADA ---
+      // Construcción dinámica de la consulta para usar los DEFAULT de la BD
+
+      const campos: string[] = [
+        "titulo",
+        "descripcion",
+        "tipo",
+        "fecha_inicio",
+        "creado_por",
+      ];
+      const valores: any[] = [
         datos.titulo,
         datos.descripcion || null,
         datos.tipo,
         datos.fecha_inicio,
-        datos.fecha_fin || null,
-        datos.prioridad,
         usuarioId,
-        datos.asignado_a || null,
       ];
-      const resultActividad = await sql(queryActividad, paramsActividad);
+
+      // Añadimos los campos opcionales SOLO si vienen en el DTO
+      // Si no vienen, la BD usará el DEFAULT ('media', null, null)
+      if (datos.prioridad) {
+        campos.push("prioridad");
+        valores.push(datos.prioridad);
+      }
+
+      // (Mantenemos la lógica por si en el futuro se vuelve a añadir)
+      // if (datos.fecha_fin) {
+      //   campos.push('fecha_fin');
+      //   valores.push(datos.fecha_fin);
+      // }
+      // if (datos.asignado_a) {
+      //   campos.push('asignado_a');
+      //   valores.push(datos.asignado_a);
+      // }
+
+      // Creamos los placeholders ($1, $2, $3...)
+      const placeholders = campos.map((_, i) => `$${i + 1}`).join(", ");
+
+      const queryActividad = `
+        INSERT INTO actividades (${campos.join(", ")})
+        VALUES (${placeholders})
+        RETURNING *
+      `;
+      // --- FIN DE SECCIÓN ACTUALIZADA ---
+
+      const resultActividad = await sql(queryActividad, valores);
       const actividad = resultActividad.rows[0] as Actividad;
 
-      // Asociar departamentos
+      // Asociar departamentos (sin cambios)
       if (datos.departamento_ids && datos.departamento_ids.length > 0) {
         for (const deptId of datos.departamento_ids) {
-          // ---- Sintaxis SQL corregida ----
           const queryDept = `
             INSERT INTO actividades_departamentos (actividad_id, departamento_id)
             VALUES ($1, $2)
@@ -44,8 +71,7 @@ export class ActividadesService {
         }
       }
 
-      // Registrar en auditoría
-      // ---- Sintaxis SQL corregida ----
+      // Registrar en auditoría (sin cambios)
       const queryAuditoria = `
         INSERT INTO registro_actividades (actividad_id, usuario_id, accion, cambios)
         VALUES ($1, $2, 'creada', $3)
@@ -65,7 +91,6 @@ export class ActividadesService {
 
   static async obtenerPorId(id: string): Promise<Actividad | null> {
     try {
-      // ---- Sintaxis SQL corregida ----
       const query = `
         SELECT a.*, 
                array_agg(DISTINCT ad.departamento_id) as departamentos
@@ -87,7 +112,6 @@ export class ActividadesService {
     departamentoId: string
   ): Promise<Actividad[]> {
     try {
-      // ---- Sintaxis SQL corregida ----
       const query = `
         SELECT DISTINCT a.*, 
                array_agg(DISTINCT ad.departamento_id) as departamentos
@@ -110,7 +134,6 @@ export class ActividadesService {
 
   static async obtenerTodas(): Promise<Actividad[]> {
     try {
-      // ---- Sintaxis SQL corregida ----
       const query = `
         SELECT a.*, 
                array_agg(DISTINCT ad.departamento_id) as departamentos
@@ -134,8 +157,8 @@ export class ActividadesService {
   ): Promise<Actividad> {
     try {
       const setClause = [];
-      const params: any[] = [id, usuarioId, JSON.stringify(datos)]; // Iniciar params con los que se usarán después
-      let paramIndex = 4; // Empezar en $4
+      const params: any[] = [id, usuarioId, JSON.stringify(datos)];
+      let paramIndex = 4;
 
       if (datos.titulo !== undefined) {
         setClause.push(`titulo = $${paramIndex}`);
@@ -170,7 +193,6 @@ export class ActividadesService {
       }
 
       if (setClause.length > 0) {
-        // ---- Sintaxis SQL corregida ----
         const queryUpdate = `
           UPDATE actividades
           SET ${setClause.join(", ")}
@@ -180,7 +202,6 @@ export class ActividadesService {
         await sql(queryUpdate, params);
       }
 
-      // Actualizar departamentos si se proporciona
       if (datos.departamento_ids) {
         await sql(
           `DELETE FROM actividades_departamentos WHERE actividad_id = $1`,
@@ -188,7 +209,6 @@ export class ActividadesService {
         );
 
         for (const deptId of datos.departamento_ids) {
-          // ---- Sintaxis SQL corregida ----
           const queryDept = `
             INSERT INTO actividades_departamentos (actividad_id, departamento_id)
             VALUES ($1, $2)
@@ -197,15 +217,12 @@ export class ActividadesService {
         }
       }
 
-      // Registrar en auditoría
-      // ---- Sintaxis SQL corregida ----
       const queryAuditoria = `
         INSERT INTO registro_actividades (actividad_id, usuario_id, accion, cambios)
         VALUES ($1, $2, 'actualizada', $3)
       `;
       await sql(queryAuditoria, [id, usuarioId, JSON.stringify(datos)]);
 
-      // Devolver la actividad actualizada
       const actividadActualizada = await this.obtenerPorId(id);
       if (!actividadActualizada)
         throw new Error("Actividad no encontrada después de actualizar");

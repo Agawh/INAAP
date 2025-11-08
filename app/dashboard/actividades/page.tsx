@@ -1,14 +1,18 @@
 // /app/dashboard/actividades/page.tsx
-import { ActividadesService } from "@/services/actividades.service"; //
+import { ActividadesService } from "@/services/actividades.service";
 import { CronogramaActividades } from "@/components/actividades/cronograma-actividades";
+// --- ¡CAMBIO! Importamos el servicio de departamentos ---
+import { DepartamentosService } from "@/services/departamentos.service";
 
 // Hacemos que la página se revalide dinámicamente
 export const revalidate = 0;
 
 export default async function PaginaCronograma() {
-  // 1. Obtenemos los datos en el servidor
-  // Usamos la función que ya existe en tu servicio
-  const actividades = await ActividadesService.obtenerTodas();
+  // --- ¡CAMBIO! Obtenemos actividades Y departamentos ---
+  const [actividades, departamentos] = await Promise.all([
+    ActividadesService.obtenerTodas(),
+    DepartamentosService.obtenerTodos(),
+  ]);
 
   return (
     <div className="flex flex-col gap-6">
@@ -21,8 +25,11 @@ export default async function PaginaCronograma() {
         </p>
       </div>
 
-      {/* 2. Pasamos los datos al componente de cliente */}
-      <CronogramaActividades actividades={actividades} />
+      {/* --- ¡CAMBIO! Pasamos los departamentos como prop --- */}
+      <CronogramaActividades
+        actividades={actividades}
+        departamentos={departamentos}
+      />
     </div>
   );
 }

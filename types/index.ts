@@ -24,14 +24,13 @@ export interface Usuario {
   nombre_completo: string;
   rol: Rol;
   cedula: string;
-  telefono?: string; // <-- ¡AÑADIDO! (opcional)
+  telefono?: string;
   departamento_id: string;
   telegram_chat_id?: string;
   correo_google?: string;
   activo: boolean;
 }
 
-// ... (El resto de interfaces: Actividad, Notificacion, DTOs, etc. sin cambios) ...
 export interface Actividad {
   id: string;
   titulo: string;
@@ -71,10 +70,16 @@ export interface CrearActividadDTO {
   descripcion?: string;
   tipo: TipoActividad;
   fecha_inicio: Date;
-  fecha_fin?: Date;
-  prioridad: Prioridad;
+  // --- CAMBIO: 'fecha_fin' eliminado ---
+  // fecha_fin?: Date; // <-- ELIMINADO
+
+  // --- CAMBIO: 'prioridad' ahora es opcional ---
+  prioridad?: Prioridad; // <-- ACTUALIZADO (antes era obligatorio)
+
   departamento_ids: string[];
-  asignado_a?: string;
+
+  // --- CAMBIO: 'asignado_a' eliminado ---
+  // asignado_a?: string; // <-- ELIMINADO
 }
 
 export interface ActualizarActividadDTO {
