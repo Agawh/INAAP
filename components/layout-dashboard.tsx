@@ -1,3 +1,4 @@
+// /components/layout-dashboard.tsx
 "use client";
 
 import * as React from "react";
@@ -10,8 +11,8 @@ import {
   LogOut,
   ChevronDown,
   ChevronRight,
-  UserPlus, // Para "Crear Usuario"
-  List, // Para "Ver Todos"
+  UserPlus,
+  List,
   CalendarPlus,
   CalendarClock,
 } from "lucide-react";
@@ -30,12 +31,12 @@ import {
   SidebarMenuSub,
   SidebarMenuSubItem,
   SidebarMenuSubButton,
-} from "@/components/ui/sidebar"; //
+} from "@/components/ui/sidebar";
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
-} from "@/components/ui/collapsible"; //
+} from "@/components/ui/collapsible";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -59,7 +60,7 @@ function getInitials(name: string) {
     .toUpperCase();
 }
 
-// Componente para el botón del menú desplegable
+// (Componente MenuCollapsibleTrigger sin cambios)
 function MenuCollapsibleTrigger({
   label,
   icon,
@@ -71,10 +72,9 @@ function MenuCollapsibleTrigger({
 }) {
   return (
     <CollapsibleTrigger asChild>
-      {/* --- ¡CAMBIO DE TAMAÑO! --- */}
       <SidebarMenuButton
         tooltip={tooltip}
-        className="h-11 group/menu-button w-full justify-between" // Aumentado a h-11
+        className="h-11 group/menu-button w-full justify-between"
       >
         <div className="flex items-center gap-2">
           {icon}
@@ -106,21 +106,17 @@ export function LayoutDashboard({
       <Sidebar variant="inset" collapsible="icon">
         <SidebarRail />
         <SidebarHeader>
-          {/* --- ¡CAMBIO DE TAMAÑO DEL LOGO! --- */}
           <div className="flex h-14 items-center justify-center">
-            {" "}
-            {/* Aumentado a h-14 */}
             <img
-              src="/Inaturlogo.png" //
+              src="/Inaturlogo.png"
               alt="Logo INATUR"
-              className="h-14 w-auto object-contain" // Aumentado a h-14
+              className="h-14 w-auto object-contain"
             />
           </div>
         </SidebarHeader>
         <SidebarContent>
           <SidebarMenu>
             <SidebarMenuItem>
-              {/* --- ¡CAMBIO DE TAMAÑO! --- */}
               <SidebarMenuButton
                 asChild
                 isActive
@@ -134,7 +130,7 @@ export function LayoutDashboard({
               </SidebarMenuButton>
             </SidebarMenuItem>
 
-            {/* --- Menú Desplegable: Actividades --- */}
+            {/* --- Menú Desplegable: Actividades (CON ENLACES CORREGIDOS) --- */}
             <Collapsible asChild>
               <SidebarMenuItem>
                 <MenuCollapsibleTrigger
@@ -145,7 +141,7 @@ export function LayoutDashboard({
                 <CollapsibleContent>
                   <SidebarMenuSub>
                     <SidebarMenuSubItem>
-                      {/* --- ¡CAMBIO DE TAMAÑO! --- */}
+                      {/* --- ¡ENLACE AÑADIDO! --- */}
                       <SidebarMenuSubButton
                         href="/dashboard/actividades/crear"
                         className="h-11"
@@ -155,7 +151,7 @@ export function LayoutDashboard({
                       </SidebarMenuSubButton>
                     </SidebarMenuSubItem>
                     <SidebarMenuSubItem>
-                      {/* --- ¡CAMBIO DE TAMAÑO! --- */}
+                      {/* --- ¡ENLACE AÑADIDO! --- */}
                       <SidebarMenuSubButton
                         href="/dashboard/actividades"
                         className="h-11"
@@ -169,7 +165,7 @@ export function LayoutDashboard({
               </SidebarMenuItem>
             </Collapsible>
 
-            {/* --- ¡MENÚ CONSOLIDADO! --- */}
+            {/* --- Menú Desplegable: Superusuario (CON ENLACES) --- */}
             {usuario.rol === "superusuario" && (
               <Collapsible asChild>
                 <SidebarMenuItem>
@@ -180,7 +176,6 @@ export function LayoutDashboard({
                   />
                   <CollapsibleContent>
                     <SidebarMenuSub>
-                      {/* 1. Ver todos */}
                       <SidebarMenuSubItem>
                         <SidebarMenuSubButton
                           href="/dashboard/usuarios"
@@ -190,7 +185,6 @@ export function LayoutDashboard({
                           <span>Ver todos</span>
                         </SidebarMenuSubButton>
                       </SidebarMenuSubItem>
-                      {/* 2. Solo un botón de Crear */}
                       <SidebarMenuSubItem>
                         <SidebarMenuSubButton
                           href="/dashboard/usuarios/crear"
@@ -209,7 +203,6 @@ export function LayoutDashboard({
             {/* Menú de Configuración (solo Superusuario) */}
             {usuario.rol === "superusuario" && (
               <SidebarMenuItem>
-                {/* --- ¡CAMBIO DE TAMAÑO! --- */}
                 <SidebarMenuButton
                   asChild
                   tooltip="Configuración"
@@ -227,15 +220,15 @@ export function LayoutDashboard({
         <SidebarFooter />
       </Sidebar>
 
+      {/* --- Header Principal --- */}
       <SidebarInset>
-        {/* --- Header Principal --- */}
         <header className="sticky top-0 z-10 flex h-14 items-center justify-between gap-4 border-b bg-background/80 px-4 backdrop-blur-sm sm:px-6">
           <SidebarTrigger className="md:hidden" />
           <div className="flex-1">
             {/* Espacio para título de página o breadcrumbs */}
           </div>
 
-          {/* --- Menú de Usuario --- */}
+          {/* --- Menú de Usuario (sin cambios) --- */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
