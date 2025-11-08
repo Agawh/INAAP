@@ -10,11 +10,10 @@ import {
   LogOut,
   ChevronDown,
   ChevronRight,
-  UserPlus,
-  UserCheck,
+  UserPlus, // Para "Crear Usuario"
+  List, // Para "Ver Todos"
   CalendarPlus,
   CalendarClock,
-  List, // <-- Icono para "Ver todos"
 } from "lucide-react";
 import {
   SidebarProvider,
@@ -31,12 +30,12 @@ import {
   SidebarMenuSub,
   SidebarMenuSubItem,
   SidebarMenuSubButton,
-} from "@/components/ui/sidebar";
+} from "@/components/ui/sidebar"; //
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
-} from "@/components/ui/collapsible";
+} from "@/components/ui/collapsible"; //
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -60,7 +59,7 @@ function getInitials(name: string) {
     .toUpperCase();
 }
 
-// (Componente MenuCollapsibleTrigger sin cambios)
+// Componente para el botón del menú desplegable
 function MenuCollapsibleTrigger({
   label,
   icon,
@@ -72,10 +71,10 @@ function MenuCollapsibleTrigger({
 }) {
   return (
     <CollapsibleTrigger asChild>
-      {/* --- ¡CAMBIO! Aumentamos el tamaño --- */}
+      {/* --- ¡CAMBIO DE TAMAÑO! --- */}
       <SidebarMenuButton
         tooltip={tooltip}
-        className="h-10 group/menu-button w-full justify-between"
+        className="h-11 group/menu-button w-full justify-between" // Aumentado a h-11
       >
         <div className="flex items-center gap-2">
           {icon}
@@ -107,23 +106,26 @@ export function LayoutDashboard({
       <Sidebar variant="inset" collapsible="icon">
         <SidebarRail />
         <SidebarHeader>
-          <div className="flex h-12 items-center justify-center">
+          {/* --- ¡CAMBIO DE TAMAÑO DEL LOGO! --- */}
+          <div className="flex h-14 items-center justify-center">
+            {" "}
+            {/* Aumentado a h-14 */}
             <img
-              src="/Inaturlogo.png"
+              src="/Inaturlogo.png" //
               alt="Logo INATUR"
-              className="h-12 w-auto object-contain"
+              className="h-14 w-auto object-contain" // Aumentado a h-14
             />
           </div>
         </SidebarHeader>
         <SidebarContent>
           <SidebarMenu>
             <SidebarMenuItem>
-              {/* --- ¡CAMBIO! Aumentamos el tamaño --- */}
+              {/* --- ¡CAMBIO DE TAMAÑO! --- */}
               <SidebarMenuButton
                 asChild
                 isActive
                 tooltip="Inicio"
-                className="h-10"
+                className="h-11"
               >
                 <Link href="/dashboard">
                   <Home className="size-4" />
@@ -143,20 +145,20 @@ export function LayoutDashboard({
                 <CollapsibleContent>
                   <SidebarMenuSub>
                     <SidebarMenuSubItem>
-                      {/* --- ¡CAMBIO! Aumentamos el tamaño --- */}
+                      {/* --- ¡CAMBIO DE TAMAÑO! --- */}
                       <SidebarMenuSubButton
                         href="/dashboard/actividades/crear"
-                        className="h-10"
+                        className="h-11"
                       >
                         <CalendarPlus className="size-4" />
                         <span>Crear actividad</span>
                       </SidebarMenuSubButton>
                     </SidebarMenuSubItem>
                     <SidebarMenuSubItem>
-                      {/* --- ¡CAMBIO! Aumentamos el tamaño --- */}
+                      {/* --- ¡CAMBIO DE TAMAÑO! --- */}
                       <SidebarMenuSubButton
                         href="/dashboard/actividades"
-                        className="h-10"
+                        className="h-11"
                       >
                         <CalendarClock className="size-4" />
                         <span>Ver cronograma</span>
@@ -167,7 +169,7 @@ export function LayoutDashboard({
               </SidebarMenuItem>
             </Collapsible>
 
-            {/* --- Menú Desplegable: Superusuario --- */}
+            {/* --- ¡MENÚ CONSOLIDADO! --- */}
             {usuario.rol === "superusuario" && (
               <Collapsible asChild>
                 <SidebarMenuItem>
@@ -178,33 +180,24 @@ export function LayoutDashboard({
                   />
                   <CollapsibleContent>
                     <SidebarMenuSub>
-                      {/* --- ¡NUEVO ENLACE! --- */}
+                      {/* 1. Ver todos */}
                       <SidebarMenuSubItem>
                         <SidebarMenuSubButton
                           href="/dashboard/usuarios"
-                          className="h-10"
+                          className="h-11"
                         >
                           <List className="size-4" />
                           <span>Ver todos</span>
                         </SidebarMenuSubButton>
                       </SidebarMenuSubItem>
-
+                      {/* 2. Solo un botón de Crear */}
                       <SidebarMenuSubItem>
                         <SidebarMenuSubButton
                           href="/dashboard/usuarios/crear"
-                          className="h-10"
+                          className="h-11"
                         >
                           <UserPlus className="size-4" />
-                          <span>Agregar jefe de departamento</span>
-                        </SidebarMenuSubButton>
-                      </SidebarMenuSubItem>
-                      <SidebarMenuSubItem>
-                        <SidebarMenuSubButton
-                          href="/dashboard/usuarios/crear"
-                          className="h-1tranajador"
-                        >
-                          <UserCheck className="size-4" />
-                          <span>Agregar trabajador</span>
+                          <span>Crear Usuario</span>
                         </SidebarMenuSubButton>
                       </SidebarMenuSubItem>
                     </SidebarMenuSub>
@@ -216,11 +209,11 @@ export function LayoutDashboard({
             {/* Menú de Configuración (solo Superusuario) */}
             {usuario.rol === "superusuario" && (
               <SidebarMenuItem>
-                {/* --- ¡CAMBIO! Aumentamos el tamaño --- */}
+                {/* --- ¡CAMBIO DE TAMAÑO! --- */}
                 <SidebarMenuButton
                   asChild
                   tooltip="Configuración"
-                  className="h-10"
+                  className="h-11"
                 >
                   <Link href="/dashboard/configuracion">
                     <Settings className="size-4" />

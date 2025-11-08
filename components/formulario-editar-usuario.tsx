@@ -27,7 +27,6 @@ import {
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Spinner } from "@/components/ui/spinner";
 
-// (const roles sin cambios)
 const roles: { value: Rol; label: string }[] = [
   { value: "jefe_departamento", label: "Jefe de Departamento" },
   { value: "miembro_departamento", label: "Miembro de Departamento" },
@@ -76,7 +75,8 @@ export function FormularioEditarUsuario({
       <Card>
         <CardContent className="grid grid-cols-1 gap-6 pt-6 md:grid-cols-2">
           {/* Alerta de Error General */}
-          {estado.mensaje &&
+          {/* --- ¡CORRECCIÓN! Añadida comprobación de 'estado' --- */}
+          {estado?.mensaje &&
             estado.errores &&
             Object.keys(estado.errores).length === 0 && (
               <Alert variant="destructive" className="md:col-span-2">
@@ -93,11 +93,11 @@ export function FormularioEditarUsuario({
               id="nombre_completo"
               name="nombre_completo"
               defaultValue={usuario.nombre_completo}
-              aria-invalid={!!estado.errores?.nombre_completo}
+              aria-invalid={!!estado?.errores?.nombre_completo}
               pattern="[a-zA-Z\sñÑáéíóúÁÉÍÓÚ]*"
               title="El nombre solo debe contener letras y espacios"
             />
-            {estado.errores?.nombre_completo && (
+            {estado?.errores?.nombre_completo && (
               <p className="text-sm text-destructive">
                 {estado.errores.nombre_completo[0]}
               </p>
@@ -111,13 +111,13 @@ export function FormularioEditarUsuario({
               id="cedula"
               name="cedula"
               defaultValue={usuario.cedula}
-              aria-invalid={!!estado.errores?.cedula}
+              aria-invalid={!!estado?.errores?.cedula}
               type="text"
               pattern="[0-9]*"
               inputMode="numeric"
               title="La cédula solo debe contener números"
             />
-            {estado.errores?.cedula && (
+            {estado?.errores?.cedula && (
               <p className="text-sm text-destructive">
                 {estado.errores.cedula[0]}
               </p>
@@ -132,9 +132,9 @@ export function FormularioEditarUsuario({
               name="email"
               type="email"
               defaultValue={usuario.email}
-              aria-invalid={!!estado.errores?.email}
+              aria-invalid={!!estado?.errores?.email}
             />
-            {estado.errores?.email && (
+            {estado?.errores?.email && (
               <p className="text-sm text-destructive">
                 {estado.errores.email[0]}
               </p>
@@ -149,9 +149,9 @@ export function FormularioEditarUsuario({
               name="password"
               type="password"
               placeholder="Dejar en blanco para no cambiar"
-              aria-invalid={!!estado.errores?.password}
+              aria-invalid={!!estado?.errores?.password}
             />
-            {estado.errores?.password && (
+            {estado?.errores?.password && (
               <p className="text-sm text-destructive">
                 {estado.errores.password[0]}
               </p>
@@ -166,12 +166,12 @@ export function FormularioEditarUsuario({
               name="telefono"
               type="tel"
               defaultValue={usuario.telefono || ""}
-              aria-invalid={!!estado.errores?.telefono}
+              aria-invalid={!!estado?.errores?.telefono}
               pattern="[0-9]*"
               inputMode="numeric"
               title="El teléfono solo debe contener números"
             />
-            {estado.errores?.telefono && (
+            {estado?.errores?.telefono && (
               <p className="text-sm text-destructive">
                 {estado.errores.telefono[0]}
               </p>
@@ -182,7 +182,7 @@ export function FormularioEditarUsuario({
           <div className="grid gap-2">
             <Label htmlFor="rol">Rol</Label>
             <Select name="rol" defaultValue={usuario.rol}>
-              <SelectTrigger id="rol" aria-invalid={!!estado.errores?.rol}>
+              <SelectTrigger id="rol" aria-invalid={!!estado?.errores?.rol}>
                 <SelectValue placeholder="Seleccione un rol" />
               </SelectTrigger>
               <SelectContent>
@@ -193,7 +193,7 @@ export function FormularioEditarUsuario({
                 ))}
               </SelectContent>
             </Select>
-            {estado.errores?.rol && (
+            {estado?.errores?.rol && (
               <p className="text-sm text-destructive">
                 {estado.errores.rol[0]}
               </p>
@@ -209,7 +209,7 @@ export function FormularioEditarUsuario({
             >
               <SelectTrigger
                 id="departamento_id"
-                aria-invalid={!!estado.errores?.departamento_id}
+                aria-invalid={!!estado?.errores?.departamento_id}
               >
                 <SelectValue placeholder="Seleccione un departamento" />
               </SelectTrigger>
@@ -221,7 +221,7 @@ export function FormularioEditarUsuario({
                 ))}
               </SelectContent>
             </Select>
-            {estado.errores?.departamento_id && (
+            {estado?.errores?.departamento_id && (
               <p className="text-sm text-destructive">
                 {estado.errores.departamento_id[0]}
               </p>

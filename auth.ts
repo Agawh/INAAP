@@ -5,8 +5,9 @@ import { z } from "zod";
 import { sql } from "@/lib/db";
 import { verifyPassword } from "@/lib/auth";
 import type { Usuario } from "@/types";
+// --- ¡IMPORTACIÓN CORREGIDA! ---
+import { UsuariosService } from "@/services/usuarios.service";
 
-// Esquema de validación para el login
 const loginSchema = z.object({
   email: z.string().email(),
   password: z.string().min(1),
@@ -17,37 +18,26 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     Credentials({
       async authorize(credentials) {
         try {
-          // 1. Validar credenciales
           const parsedCredentials = loginSchema.parse(credentials);
           const { email, password } = parsedCredentials;
 
-          // 2. Buscar al usuario
+          // --- ¡LÓGICA CORREGIDA! ---
+          // 1. Buscamos solo el hash y el estado
+          const result = await sql(
+            `SELECT password_hash, activo FROM usuarios WHERE email = $1`,
+            [email]
+          );
+          const usuarioDb = result.rows[0];
 
-          // ---- ¡CORRECCIÓN APLICADA AQUÍ! ----
-          // Se usa la sintaxis sql(query, [params]) que espera tu lib/db.ts
-          const query = `
-            SELECT id, email, password_hash, nombre_completo, rol, departamento_id, activo
-            FROM usuarios
-            WHERE email = $1
-            LIMIT 1
-          `;
-          const result = await sql(query, [email]);
-          const usuario = result.rows[0];
-
-          if (!usuario || !usuario.password_hash) {
-            console.log("Auth: Usuario no encontrado.");
+          if (!usuarioDb || !usuarioDb.password_hash || !usuarioDb.activo) {
+            console.log("Auth: Usuario no encontrado o inactivo.");
             return null;
           }
 
-          if (!usuario.activo) {
-            console.log("Auth: Usuario inactivo.");
-            return null;
-          }
-
-          // 3. Verificar la contraseña
+          // 2. Verificamos la contraseña
           const passwordValida = await verifyPassword(
             password,
-            usuario.password_hash
+            usuarioDb.password_hash
           );
 
           if (!passwordValida) {
@@ -55,7 +45,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             return null;
           }
 
-          // 4. Retornar el objeto usuario para la sesión
+          // 3. Si es válida, obtenemos el usuario completo desde el SERVICIO
+          const usuario = await UsuariosService.obtenerUsuarioPorEmail(email);
+          if (!usuario) return null; // No debería pasar, pero es seguro
+
+          // 4. Retornamos los datos para la sesión
           return {
             id: usuario.id,
             email: usuario.email,
@@ -70,15 +64,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     }),
   ],
   callbacks: {
-    // Añadimos 'rol' al token
     async jwt({ token, user }) {
       if (user) {
         token.id = user.id;
-        token.rol = user.rol; // Esto funciona gracias al archivo next-auth.d.ts
+        token.rol = user.rol;
       }
       return token;
     },
-    // Añadimos 'rol' a la sesión
     async session({ session, token }) {
       if (session.user && token.id) {
         session.user.id = token.id as string;
@@ -88,7 +80,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     },
   },
   pages: {
-    signIn: "/", // Página de inicio de sesión es la raíz
+    signIn: "/",
   },
   session: {
     strategy: "jwt",

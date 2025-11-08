@@ -46,18 +46,22 @@ function traducirRol(rol: string) {
   }
 }
 
+// --- ¡CORRECCIÓN DE TIPO! ---
+// Tipamos searchParams como una Promise
 type PageProps = {
-  searchParams?: { q?: string };
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 };
 
 export default async function GestionUsuariosPage({ searchParams }: PageProps) {
   const session = await auth();
-  const filtro = searchParams?.q || "";
 
-  // --- ¡CORRECCIÓN DE ERROR 'session' is possibly 'null'! ---
+  // --- ¡CORRECCIÓN DEL ERROR! ---
+  // Hacemos 'await' de los searchParams
+  const params = await searchParams;
+  const filtro = typeof params.q === "string" ? params.q : "";
+
   // 1. Verificación de Sesión
   if (!session?.user) {
-    // Esto debería ser manejado por el middleware, pero es una doble seguridad
     redirect("/");
   }
 
@@ -74,7 +78,6 @@ export default async function GestionUsuariosPage({ searchParams }: PageProps) {
     );
   }
 
-  // 3. Ahora 'session.user.id' es seguro de usar
   const idUsuarioLogueado = session.user.id;
 
   // 4. Obtener Datos
@@ -165,9 +168,7 @@ export default async function GestionUsuariosPage({ searchParams }: PageProps) {
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem asChild>
-                          <Link
-                            href={`/dashboard/usuarios/${usuario.id}/editar`}
-                          >
+                          <Link href={`/dashboard/usuarios/${usuario.id}`}>
                             Editar
                           </Link>
                         </DropdownMenuItem>

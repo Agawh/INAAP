@@ -2,7 +2,9 @@
 import * as React from "react";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
-import { obtenerUsuarioPorId } from "@/lib/auth"; //
+// --- ¡ESTA ES LA CORRECCIÓN! ---
+// La función ahora se importa desde el servicio de usuarios, no de lib/auth
+import { UsuariosService } from "@/services/usuarios.service"; //
 import { LayoutDashboard } from "@/components/layout-dashboard";
 import type { Usuario } from "@/types"; //
 
@@ -19,14 +21,14 @@ export default async function DashboardLayout({
     redirect("/");
   }
 
-  // 3. Obtener los datos completos del usuario desde la BD
-  // La sesión solo tiene id, email, name, rol.
-  // Usamos obtenerUsuarioPorId para cargar el resto de datos si es necesario.
-  const usuario = await obtenerUsuarioPorId(session.user.id);
+  // --- ¡Y AQUÍ SE USA LA IMPORTACIÓN CORRECTA! ---
+  // 3. Obtener los datos completos del usuario desde el servicio
+  const usuario = await UsuariosService.obtenerUsuarioPorId(session.user.id);
 
   if (!usuario) {
     // Si el usuario fue borrado de la BD pero la sesión aún existe
-    redirect("/");
+    // Forzamos un cierre de sesión redirigiendo
+    redirect("/api/auth/signout");
   }
 
   // 4. Pasar el usuario al layout de cliente

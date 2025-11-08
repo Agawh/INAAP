@@ -4,12 +4,11 @@ import { z } from "zod";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
-import { crearUsuario } from "@/lib/auth";
-import { sql } from "@/lib/db";
-// --- ¡IMPORTAMOS EL SERVICIO ACTUALIZADO! ---
+// --- ¡IMPORTACIÓN CORREGIDA! ---
 import { UsuariosService } from "@/services/usuarios.service";
+import { sql } from "@/lib/db";
 
-// --- ESQUEMA PARA CREAR ---
+// --- ¡VALIDACIONES CORREGIDAS! ---
 const schemaCrearUsuario = z.object({
   nombre_completo: z
     .string()
@@ -24,23 +23,24 @@ const schemaCrearUsuario = z.object({
     .regex(/^[0-9]+$/, "La cédula solo debe contener números"),
   email: z.string().email("Email inválido"),
   password: z.string().min(8, "La contraseña debe tener al menos 8 caracteres"),
+
+  // Usamos z.string().min(1, ...) para validar que el <Select> no esté vacío
   rol: z
     .string()
-    .refine((val) => val.length > 0, {
-      message: "Debe seleccionar un rol",
-    })
+    .min(1, "Debe seleccionar un rol")
     .pipe(
       z.enum(["jefe_departamento", "miembro_departamento", "superusuario"])
     ),
+
   departamento_id: z
     .string()
     .min(1, "Debe seleccionar un departamento")
     .uuid("Formato de departamento inválido."),
+
   telefono: z.string().optional().or(z.literal("")),
 });
 
-// --- ¡NUEVO ESQUEMA PARA EDITAR! ---
-// La contraseña es opcional y solo se valida si se escribe
+// Esquema para editar (contraseña opcional)
 const schemaEditarUsuario = schemaCrearUsuario.extend({
   password: z
     .string()
@@ -51,7 +51,8 @@ const schemaEditarUsuario = schemaCrearUsuario.extend({
     }),
 });
 
-// Estado del formulario (sirve para ambos)
+// --- ¡TIPO CORREGIDO! ---
+// (Eliminada la propiedad errónea '_')
 export type EstadoFormulario = {
   mensaje: string;
   errores?: {
@@ -65,22 +66,81 @@ export type EstadoFormulario = {
   };
 };
 
-// (La función 'accionCrearUsuario' no cambia)
+// --- ¡ACCIÓN CORREGIDA! ---
+// Ahora llama a UsuariosService.crearUsuario y la función existe
 export async function accionCrearUsuario(
   estadoPrevio: EstadoFormulario,
   formData: FormData
 ): Promise<EstadoFormulario> {
-  // ... (código existente sin cambios)
+  const datosValidados = schemaCrearUsuario.safeParse({
+    nombre_completo: formData.get("nombre_completo"),
+    cedula: formData.get("cedula"),
+    email: formData.get("email"),
+    password: formData.get("password"),
+    rol: formData.get("rol"),
+    departamento_id: formData.get("departamento_id"),
+    telefono: formData.get("telefono"),
+  });
+
+  if (!datosValidados.success) {
+    return {
+      mensaje: "Error de validación. Revise los campos.",
+      errores: datosValidados.error.flatten().fieldErrors,
+    };
+  }
+
+  try {
+    const {
+      email,
+      password,
+      nombre_completo,
+      rol,
+      departamento_id,
+      cedula,
+      telefono,
+    } = datosValidados.data;
+    // --- ¡Llamada corregida al servicio! ---
+    await UsuariosService.crearUsuario(
+      email,
+      password,
+      nombre_completo,
+      rol,
+      departamento_id,
+      cedula,
+      telefono || undefined
+    );
+  } catch (error: any) {
+    console.error(error);
+    if (error.code === "23505") {
+      if (error.constraint === "usuarios_email_key") {
+        return {
+          mensaje: "Error al crear el usuario.",
+          errores: { email: ["Este correo electrónico ya está en uso."] },
+        };
+      }
+      if (
+        error.constraint === "usuarios_cedula_key" ||
+        (error.detail && error.detail.includes("(cedula)"))
+      ) {
+        return {
+          mensaje: "Error al crear el usuario.",
+          errores: { cedula: ["Esta cédula ya está registrada."] },
+        };
+      }
+    }
+    return { mensaje: "Error de base de datos. No se pudo crear el usuario." };
+  }
+
+  revalidatePath("/dashboard/usuarios");
+  redirect("/dashboard/usuarios");
 }
 
-// --- ¡NUEVA ACCIÓN PARA EDITAR USUARIO! ---
-
+// --- ACCIÓN DE EDITAR (YA ESTABA BIEN) ---
 export async function accionEditarUsuario(
-  userId: string, // ID del usuario a editar
+  userId: string,
   estadoPrevio: EstadoFormulario,
   formData: FormData
 ): Promise<EstadoFormulario> {
-  // 1. Validar los datos con el nuevo esquema
   const datosValidados = schemaEditarUsuario.safeParse({
     nombre_completo: formData.get("nombre_completo"),
     cedula: formData.get("cedula"),
@@ -91,7 +151,6 @@ export async function accionEditarUsuario(
     telefono: formData.get("telefono"),
   });
 
-  // 2. Si la validación falla
   if (!datosValidados.success) {
     return {
       mensaje: "Error de validación. Revise los campos.",
@@ -99,19 +158,16 @@ export async function accionEditarUsuario(
     };
   }
 
-  // 3. Preparar los datos para la actualización
   try {
     const { password, ...datosUsuario } = datosValidados.data;
 
-    // Llamamos a la nueva función del servicio
     await UsuariosService.actualizarUsuario(
       userId,
       datosUsuario,
-      password || undefined // Solo pasa la contraseña si no está vacía
+      password || undefined
     );
   } catch (error: any) {
     console.error(error);
-    // Manejar errores de duplicados (email, cédula)
     if (error.code === "23505") {
       if (error.constraint === "usuarios_email_key") {
         return {
@@ -134,12 +190,11 @@ export async function accionEditarUsuario(
     };
   }
 
-  // 4. Éxito
   revalidatePath("/dashboard/usuarios");
   redirect("/dashboard/usuarios");
 }
 
-// (La función 'accionEliminarUsuario' no cambia)
+// --- ACCIÓN DE ELIMINAR (YA ESTABA BIEN) ---
 export async function accionEliminarUsuario(
   userId: string
 ): Promise<{ success: boolean; message: string }> {

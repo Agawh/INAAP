@@ -1,189 +1,183 @@
-import { auth } from "@/auth";
+// /app/dashboard/usuarios/page.tsx
+import Link from "next/link";
 import { redirect } from "next/navigation";
+import { auth } from "@/auth";
 import {
   Card,
   CardHeader,
   CardTitle,
   CardContent,
   CardDescription,
-} from "@/components/ui/card"; //
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"; //
-import { Button } from "@/components/ui/button"; //
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"; //
+} from "@/components/ui/card";
 import {
-  Users,
-  CalendarCheck,
-  Activity,
-  PlusCircle,
-  UserPlus,
-  FileText,
-} from "lucide-react";
-import { Badge } from "@/components/ui/badge"; //
+  Table,
+  TableHeader,
+  TableBody,
+  TableHead,
+  TableRow,
+  TableCell,
+} from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { AlertTriangle, PlusCircle, MoreHorizontal } from "lucide-react";
+import { DepartamentosService } from "@/services/departamentos.service";
+import { UsuariosService } from "@/services/usuarios.service";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { BusquedaUsuarios } from "@/components/busqueda-usuarios";
+import { BotonEliminarUsuario } from "@/components/boton-eliminar-usuario";
 
-export default async function DashboardPage() {
+// (función traducirRol sin cambios)
+function traducirRol(rol: string) {
+  switch (rol) {
+    case "superusuario":
+      return "Superusuario";
+    case "jefe_departamento":
+      return "Jefe de Departamento";
+    case "miembro_departamento":
+      return "Miembro";
+    default:
+      return rol;
+  }
+}
+
+type PageProps = {
+  searchParams: { [key: string]: string | string[] | undefined };
+};
+
+export default async function GestionUsuariosPage({ searchParams }: PageProps) {
   const session = await auth();
+  const filtro = typeof searchParams.q === "string" ? searchParams.q : "";
 
   if (!session?.user) {
     redirect("/");
   }
 
-  const usuario = session.user;
+  if (session.user.rol !== "superusuario") {
+    return (
+      <Alert variant="destructive">
+        <AlertTriangle className="h-4 w-4" />
+        <AlertTitle>Acceso Denegado</AlertTitle>
+        <AlertDescription>
+          No tienes permisos para acceder a esta sección.
+        </AlertDescription>
+      </Alert>
+    );
+  }
 
-  // const stats = await obtenerEstadisticas();
+  const idUsuarioLogueado = session.user.id;
+
+  const [usuarios, departamentos] = await Promise.all([
+    UsuariosService.obtenerTodos(filtro),
+    DepartamentosService.obtenerTodos(),
+  ]);
+
+  const deptMap = new Map(departamentos.map((d) => [d.id, d.nombre]));
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-col gap-2">
-        <h1 className="text-3xl font-bold tracking-tight">
-          ¡Bienvenido, {usuario.name}!
-        </h1>
-        <p className="text-lg text-muted-foreground">
-          Resumen general del sistema de actividades.
-        </p>
+      {/* (Cabecera de la página sin cambios) */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">
+            Gestión de Usuarios
+          </h1>
+          <p className="text-lg text-muted-foreground">
+            Crear, editar y administrar usuarios del sistema.
+          </p>
+        </div>
+        <Button asChild>
+          <Link href="/dashboard/usuarios/crear">
+            <PlusCircle className="mr-2 h-4 w-4" />
+            Crear Usuario
+          </Link>
+        </Button>
       </div>
 
-      {/* --- Alerta de Rol --- */}
-      {usuario.rol === "superusuario" && (
-        <Alert
-          variant="default"
-          className="border-primary/20 bg-primary/5 text-primary dark:border-primary dark:bg-primary/10 dark:text-primary-foreground [&>svg]:text-primary dark:[&>svg]:text-primary-foreground"
-        >
-          <Activity className="size-4" />
-          <AlertTitle className="font-semibold text-lg">
-            Modo Superusuario
-          </AlertTitle>
-          <AlertDescription>
-            Tienes acceso completo a la gestión de usuarios y configuración del
-            sistema.
-          </AlertDescription>
-        </Alert>
-      )}
-
-      {/* --- Sección de Estadísticas (3 Columnas) --- */}
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Usuarios Activos
-            </CardTitle>
-            <Users className="size-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">12</div>
-            <p className="text-xs text-muted-foreground">(Simulado)</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Actividades Pendientes
-            </CardTitle>
-            <CalendarCheck className="size-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">4</div>
-            <p className="text-xs text-muted-foreground">(Simulado)</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Reportes Generados
-            </CardTitle>
-            <FileText className="size-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">8</div>
-            <p className="text-xs text-muted-foreground">(Simulado)</p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* --- Sección de Acciones y Actividad Reciente --- */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        {/* Columna de Acciones Rápidas (Con Colores) */}
-        <Card className="lg:col-span-1">
-          <CardHeader>
-            <CardTitle>Acciones Rápidas</CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-3">
-            <Button className="w-full justify-start">
-              <PlusCircle className="mr-2 size-4" />
-              Crear Nueva Actividad
-            </Button>
-            {usuario.rol === "superusuario" && (
-              <Button variant="secondary" className="w-full justify-start">
-                <UserPlus className="mr-2 size-4" />
-                Añadir Nuevo Usuario
-              </Button>
-            )}
-            <Button variant="outline" className="w-full justify-start">
-              <FileText className="mr-2 size-4" />
-              Generar Reporte
-            </Button>
-          </CardContent>
-        </Card>
-
-        {/* Columna de Actividad Reciente (Con Colores) */}
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle>Actividad Reciente</CardTitle>
-            <CardDescription>
-              Últimos cambios y actualizaciones en el sistema.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-4">
-            <div className="flex items-center gap-3">
-              <Avatar className="size-9">
-                <AvatarFallback className="bg-primary/10 text-primary dark:bg-primary/20 dark:text-primary-foreground">
-                  AD
-                </AvatarFallback>
-              </Avatar>
-              <div className="text-sm">
-                <p className="font-medium">Admin</p>
-                <p className="text-muted-foreground">
-                  Creó la actividad: "Feria de Turismo 2025".
-                </p>
-              </div>
-              <time className="ml-auto text-xs text-muted-foreground">
-                Hace 5m
-              </time>
+      <Card>
+        {/* (Cabecera de Card con Búsqueda sin cambios) */}
+        <CardHeader>
+          <CardTitle>Usuarios Registrados</CardTitle>
+          <CardDescription>
+            <div className="mt-4">
+              <BusquedaUsuarios />
             </div>
-            <div className="flex items-center gap-3">
-              <Avatar className="size-9">
-                <AvatarFallback className="bg-accent/10 text-accent-foreground dark:bg-accent/20 dark:text-accent">
-                  JP
-                </AvatarFallback>
-              </Avatar>
-              <div className="text-sm">
-                <p className="font-medium">Jefe de Promoción</p>
-                <p className="text-muted-foreground">
-                  Completó la actividad: "Diseño de Folletos".
-                </p>
-              </div>
-              <Badge variant="outline" className="ml-auto">
-                Completada
-              </Badge>
-            </div>
-            <div className="flex items-center gap-3">
-              <Avatar className="size-9">
-                <AvatarFallback className="bg-primary/10 text-primary dark:bg-primary/20 dark:text-primary-foreground">
-                  AD
-                </AvatarFallback>
-              </Avatar>
-              <div className="text-sm">
-                <p className="font-medium">Admin</p>
-                <p className="text-muted-foreground">
-                  Añadió un nuevo usuario: "Analista de Redes".
-                </p>
-              </div>
-              <time className="ml-auto text-xs text-muted-foreground">
-                Hace 3h
-              </time>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Nombre Completo</TableHead>
+                <TableHead>Cédula</TableHead>
+                <TableHead>Teléfono</TableHead>
+                <TableHead>Email</TableHead>
+                <TableHead>Rol</TableHead>
+                <TableHead>Departamento</TableHead>
+                <TableHead className="text-right">Acciones</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {usuarios.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={7} className="h-24 text-center">
+                    No se encontraron usuarios con ese filtro.
+                  </TableCell>
+                </TableRow>
+              )}
+              {usuarios.map((usuario) => (
+                <TableRow key={usuario.id}>
+                  <TableCell className="font-medium">
+                    {usuario.nombre_completo}
+                  </TableCell>
+                  <TableCell>{usuario.cedula}</TableCell>
+                  <TableCell>{usuario.telefono || "N/A"}</TableCell>
+                  <TableCell>{usuario.email}</TableCell>
+                  <TableCell>
+                    <Badge
+                      variant={
+                        usuario.rol === "superusuario" ? "default" : "secondary"
+                      }
+                    >
+                      {traducirRol(usuario.rol)}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    {deptMap.get(usuario.departamento_id) || "N/A"}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon">
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem asChild>
+                          {/* --- ¡ENLACE CORREGIDO! --- */}
+                          <Link href={`/dashboard/usuarios/${usuario.id}`}>
+                            Editar
+                          </Link>
+                        </DropdownMenuItem>
+                        <BotonEliminarUsuario
+                          usuarioId={usuario.id}
+                          nombreUsuario={usuario.nombre_completo}
+                          idUsuarioLogueado={idUsuarioLogueado}
+                        />
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
     </div>
   );
 }
