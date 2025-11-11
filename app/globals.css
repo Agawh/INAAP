@@ -124,6 +124,16 @@
 }
 
 @layer base {
+  /* --- ¡CAMBIO AÑADIDO AQUÍ! --- */
+  html {
+    /* Esto reduce el tamaño de fuente base de 16px a 14px */
+    /* Todos los tamaños 'rem' se recalcularán más pequeños */
+    @apply text-[14px];
+
+    /* Si 14px es muy pequeño, puedes probar con 15px: */
+    /* @apply text-[15px]; */
+  }
+
   * {
     @apply border-border outline-ring/50;
   }

@@ -130,7 +130,7 @@ export function LayoutDashboard({
               </SidebarMenuButton>
             </SidebarMenuItem>
 
-            {/* --- Menú Desplegable: Actividades (CON ENLACES CORREGIDOS) --- */}
+            {/* Menú de Actividades (Visible para todos) */}
             <Collapsible asChild>
               <SidebarMenuItem>
                 <MenuCollapsibleTrigger
@@ -140,18 +140,20 @@ export function LayoutDashboard({
                 />
                 <CollapsibleContent>
                   <SidebarMenuSub>
+                    {/* Solo Jefes y Superusuarios pueden crear */}
+                    {(usuario.rol === "superusuario" ||
+                      usuario.rol === "jefe_departamento") && (
+                      <SidebarMenuSubItem>
+                        <SidebarMenuSubButton
+                          href="/dashboard/actividades/crear"
+                          className="h-11"
+                        >
+                          <CalendarPlus className="size-4" />
+                          <span>Crear actividad</span>
+                        </SidebarMenuSubButton>
+                      </SidebarMenuSubItem>
+                    )}
                     <SidebarMenuSubItem>
-                      {/* --- ¡ENLACE AÑADIDO! --- */}
-                      <SidebarMenuSubButton
-                        href="/dashboard/actividades/crear"
-                        className="h-11"
-                      >
-                        <CalendarPlus className="size-4" />
-                        <span>Crear actividad</span>
-                      </SidebarMenuSubButton>
-                    </SidebarMenuSubItem>
-                    <SidebarMenuSubItem>
-                      {/* --- ¡ENLACE AÑADIDO! --- */}
                       <SidebarMenuSubButton
                         href="/dashboard/actividades"
                         className="h-11"
@@ -165,7 +167,7 @@ export function LayoutDashboard({
               </SidebarMenuItem>
             </Collapsible>
 
-            {/* --- Menú Desplegable: Superusuario (CON ENLACES) --- */}
+            {/* Menú de Superusuario */}
             {usuario.rol === "superusuario" && (
               <Collapsible asChild>
                 <SidebarMenuItem>
@@ -200,6 +202,23 @@ export function LayoutDashboard({
               </Collapsible>
             )}
 
+            {/* --- ¡NUEVO MENÚ AÑADIDO! --- */}
+            {/* Menú de Jefe de Departamento */}
+            {usuario.rol === "jefe_departamento" && (
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  tooltip="Mi Departamento"
+                  className="h-11"
+                >
+                  <Link href="/dashboard/mi-departamento">
+                    <Users className="size-4" />
+                    <span>Mi Departamento</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            )}
+
             {/* Menú de Configuración (solo Superusuario) */}
             {usuario.rol === "superusuario" && (
               <SidebarMenuItem>
@@ -228,7 +247,7 @@ export function LayoutDashboard({
             {/* Espacio para título de página o breadcrumbs */}
           </div>
 
-          {/* --- Menú de Usuario (sin cambios) --- */}
+          {/* --- Menú de Usuario (con enlace a /perfil) --- */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
@@ -265,10 +284,14 @@ export function LayoutDashboard({
                 </span>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem>
-                <Settings className="mr-2 size-4" />
-                <span>Mi Perfil</span>
+
+              <DropdownMenuItem asChild>
+                <Link href="/dashboard/perfil">
+                  <Settings className="mr-2 size-4" />
+                  <span>Mi Perfil</span>
+                </Link>
               </DropdownMenuItem>
+
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 onSelect={handleCerrarSesion}

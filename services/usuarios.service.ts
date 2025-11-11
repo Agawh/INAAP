@@ -1,7 +1,7 @@
 // /services/usuarios.service.ts
 import { sql } from "@/lib/db";
 import type { Usuario, ConfiguracionNotificaciones } from "@/types";
-import { hashPassword } from "@/lib/auth"; // Importamos para hashear la nueva contraseña
+import { hashPassword, verifyPassword } from "@/lib/auth";
 
 export class UsuariosService {
   // OBTENER TODOS (CON FILTRO)
@@ -68,7 +68,27 @@ export class UsuariosService {
     }
   }
 
-  // --- ¡LA FUNCIÓN QUE FALTABA! ---
+  // VERIFICAR PASSWORD
+  static async verificarPassword(
+    userId: string,
+    passwordActual: string
+  ): Promise<boolean> {
+    try {
+      const query = `SELECT password_hash FROM usuarios WHERE id = $1 LIMIT 1`;
+      const result = await sql(query, [userId]);
+
+      if (result.rows.length === 0) {
+        return false; // Usuario no encontrado
+      }
+
+      const hash = result.rows[0].password_hash;
+      return verifyPassword(passwordActual, hash);
+    } catch (error) {
+      console.error("[v0] Error verificando password:", error);
+      return false;
+    }
+  }
+
   // CREAR UN NUEVO USUARIO
   static async crearUsuario(
     email: string,
@@ -125,29 +145,53 @@ export class UsuariosService {
         passwordHash = await hashPassword(nuevaPassword);
       }
 
+      const campos: string[] = [];
+      const params: any[] = [];
+      let paramIndex = 1;
+
+      if (datos.nombre_completo) {
+        campos.push(`nombre_completo = $${paramIndex++}`);
+        params.push(datos.nombre_completo);
+      }
+      if (datos.email) {
+        campos.push(`email = $${paramIndex++}`);
+        params.push(datos.email);
+      }
+      if (datos.rol) {
+        campos.push(`rol = $${paramIndex++}`);
+        params.push(datos.rol);
+      }
+      if (datos.departamento_id) {
+        campos.push(`departamento_id = $${paramIndex++}`);
+        params.push(datos.departamento_id);
+      }
+      if (datos.cedula) {
+        campos.push(`cedula = $${paramIndex++}`);
+        params.push(datos.cedula);
+      }
+      if (datos.telefono) {
+        campos.push(`telefono = $${paramIndex++}`);
+        params.push(datos.telefono);
+      }
+
+      if (passwordHash) {
+        campos.push(`password_hash = $${paramIndex++}`);
+        params.push(passwordHash);
+      }
+
+      if (campos.length === 0) {
+        const usuario = await this.obtenerUsuarioPorId(id);
+        if (!usuario) throw new Error("Usuario no encontrado");
+        return usuario;
+      }
+
+      params.push(id);
       const query = `
         UPDATE usuarios
-        SET 
-          nombre_completo = COALESCE($1, nombre_completo),
-          email = COALESCE($2, email),
-          rol = COALESCE($3, rol),
-          departamento_id = COALESCE($4, departamento_id),
-          cedula = COALESCE($5, cedula),
-          telefono = COALESCE($6, telefono),
-          password_hash = COALESCE($7, password_hash)
-        WHERE id = $8
+        SET ${campos.join(", ")}
+        WHERE id = $${paramIndex}
         RETURNING *
       `;
-      const params = [
-        datos.nombre_completo,
-        datos.email,
-        datos.rol,
-        datos.departamento_id,
-        datos.cedula,
-        datos.telefono,
-        passwordHash,
-        id,
-      ];
 
       const result = await sql(query, params);
       return result.rows[0] as Usuario;
@@ -157,7 +201,29 @@ export class UsuariosService {
     }
   }
 
-  // (Funciones de notificaciones que ya tenías)
+  // --- ¡NUEVA FUNCIÓN AÑADIDA! ---
+  /**
+   * Obtiene todos los usuarios (activos) que pertenecen a un departamento específico.
+   */
+  static async obtenerUsuariosPorDepartamentoId(
+    departamentoId: string
+  ): Promise<Usuario[]> {
+    try {
+      const query = `
+        SELECT id, email, nombre_completo, rol, departamento_id, cedula, telefono
+        FROM usuarios
+        WHERE departamento_id = $1 AND activo = true
+        ORDER BY nombre_completo ASC
+      `;
+      const result = await sql(query, [departamentoId]);
+      return result.rows as Usuario[];
+    } catch (error) {
+      console.error("[v0] Error obteniendo usuarios por departamento:", error);
+      throw error;
+    }
+  }
+
+  // (Funciones de notificaciones sin cambios)
   static async actualizarConfiguracionNotificaciones(
     usuarioId: string,
     config: Partial<ConfiguracionNotificaciones>

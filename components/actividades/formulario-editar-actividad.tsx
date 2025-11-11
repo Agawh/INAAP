@@ -1,18 +1,20 @@
-// /components/actividades/formulario-crear-actividad.tsx
+// /components/actividades/formulario-editar-actividad.tsx
 "use client";
 
 import * as React from "react";
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, Save, Lock } from "lucide-react";
+import { AlertTriangle, Save } from "lucide-react";
 
-import type { Departamento, TipoActividad, Rol } from "@/types";
+import type { Departamento, TipoActividad, Actividad } from "@/types";
+// --- ¡CAMBIO! Importamos la nueva acción ---
 import {
   type EstadoFormularioActividad,
-  accionCrearActividad,
+  accionEditarActividad,
 } from "@/app/actions/actividades.actions";
 
+// Componentes UI (sin cambios)
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -29,54 +31,53 @@ const tipoOptions: { value: TipoActividad; label: string }[] = [
   { value: "efemeride", label: "Efeméride" },
 ];
 
-// --- ¡CORRECCIÓN 3! ---
-// El botón ahora recibe 'disabled' como prop
-// y lo pasa al <Button> interno.
-function BotonGuardar({ disabled }: { disabled?: boolean }) {
+// --- ¡CAMBIO! Botón "Actualizar" ---
+function BotonActualizar() {
   const { pending } = useFormStatus();
   return (
-    <Button type="submit" disabled={pending || disabled}>
+    <Button type="submit" disabled={pending}>
       {pending ? (
         <>
           <Spinner className="mr-2 h-4 w-4" />
-          Guardando...
+          Actualizando...
         </>
       ) : (
         <>
           <Save className="mr-2 h-4 w-4" />
-          Guardar Actividad
+          Actualizar Actividad
         </>
       )}
     </Button>
   );
 }
 
-type FormularioCrearActividadProps = {
+// --- ¡CAMBIO! Props del Formulario ---
+type FormularioEditarActividadProps = {
+  actividad: Actividad; // <-- Recibe la actividad a editar
   departamentos: Departamento[];
-  rolUsuario: Rol;
 };
 
-export function FormularioCrearActividad({
+export function FormularioEditarActividad({
+  actividad,
   departamentos,
-  rolUsuario,
-}: FormularioCrearActividadProps) {
+}: FormularioEditarActividadProps) {
   const router = useRouter();
   const estadoInicial: EstadoFormularioActividad = { mensaje: "", errores: {} };
 
-  const [estado, dispatch] = useActionState(
-    accionCrearActividad,
-    estadoInicial
-  );
+  // --- ¡CAMBIO! Usamos la acción de editar, vinculada al ID ---
+  const accionEditarConId = accionEditarActividad.bind(null, actividad.id);
+  const [estado, dispatch] = useActionState(accionEditarConId, estadoInicial);
 
-  const esSuperusuario = rolUsuario === "superusuario";
-  const esJefeDeDepartamento =
-    rolUsuario === "jefe_departamento" && departamentos.length === 1;
+  // --- ¡CAMBIO! Formatear fecha para el input ---
+  const fechaInicioFormato = new Date(actividad.fecha_inicio)
+    .toISOString()
+    .split("T")[0];
 
   return (
     <form action={dispatch}>
       <Card>
         <CardContent className="grid grid-cols-1 gap-6 pt-6 md:grid-cols-2">
-          {/* (Alerta, Título, Tipo, Fechas, Descripción... sin cambios) */}
+          {/* Alerta de Error General */}
           {estado?.mensaje && !estado.errores && (
             <Alert variant="destructive" className="md:col-span-2">
               <AlertTriangle className="h-4 w-4" />
@@ -84,12 +85,15 @@ export function FormularioCrearActividad({
               <AlertDescription>{estado.mensaje}</AlertDescription>
             </Alert>
           )}
+
+          {/* Título */}
           <div className="grid gap-2 md:col-span-2">
             <Label htmlFor="titulo">Título de la Actividad</Label>
             <Input
               id="titulo"
               name="titulo"
               aria-invalid={!!estado?.errores?.titulo}
+              defaultValue={actividad.titulo} // <-- VALOR POR DEFECTO
             />
             {estado?.errores?.titulo && (
               <p className="text-sm text-destructive">
@@ -97,12 +101,15 @@ export function FormularioCrearActividad({
               </p>
             )}
           </div>
+
+          {/* Tipo de Actividad */}
           <div className="grid gap-2">
             <Label htmlFor="tipo">Tipo de Actividad</Label>
             <RadioGroup
               name="tipo"
               className="flex gap-4"
               aria-invalid={!!estado?.errores?.tipo}
+              defaultValue={actividad.tipo} // <-- VALOR POR DEFECTO
             >
               {tipoOptions.map((opcion) => (
                 <div key={opcion.value} className="flex items-center space-x-2">
@@ -120,6 +127,8 @@ export function FormularioCrearActividad({
               </p>
             )}
           </div>
+
+          {/* Fecha de Inicio */}
           <div className="grid gap-2">
             <Label htmlFor="fecha_inicio">Fecha de Inicio</Label>
             <Input
@@ -127,6 +136,7 @@ export function FormularioCrearActividad({
               name="fecha_inicio"
               type="date"
               aria-invalid={!!estado?.errores?.fecha_inicio}
+              defaultValue={fechaInicioFormato} // <-- VALOR POR DEFECTO
             />
             {estado?.errores?.fecha_inicio && (
               <p className="text-sm text-destructive">
@@ -134,6 +144,8 @@ export function FormularioCrearActividad({
               </p>
             )}
           </div>
+
+          {/* Descripción (Opcional) */}
           <div className="grid gap-2 md:col-span-2">
             <Label htmlFor="descripcion">Descripción (Opcional)</Label>
             <Textarea
@@ -142,6 +154,7 @@ export function FormularioCrearActividad({
               placeholder="Añade detalles sobre la actividad..."
               aria-invalid={!!estado?.errores?.descripcion}
               className="min-h-[100px]"
+              defaultValue={actividad.descripcion || ""} // <-- VALOR POR DEFECTO
             />
             {estado?.errores?.descripcion && (
               <p className="text-sm text-destructive">
@@ -150,59 +163,32 @@ export function FormularioCrearActividad({
             )}
           </div>
 
+          {/* Departamentos (Requerido) */}
           <div className="grid gap-2 md:col-span-2">
             <Label>Departamentos Involucrados</Label>
-
-            {esSuperusuario && (
-              <ScrollArea className="h-[150px] w-full rounded-md border p-4">
-                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                  {departamentos.map((depto) => (
-                    <div key={depto.id} className="flex items-center space-x-2">
-                      <Checkbox
-                        id={`depto-${depto.id}`}
-                        name="departamento_ids"
-                        value={depto.id}
-                      />
-                      <Label
-                        htmlFor={`depto-${depto.id}`}
-                        className="font-normal"
-                      >
-                        {depto.nombre}
-                      </Label>
-                    </div>
-                  ))}
-                </div>
-              </ScrollArea>
-            )}
-
-            {esJefeDeDepartamento && (
-              <div className="flex items-center gap-2 rounded-md border p-4 text-muted-foreground">
-                <Lock className="h-4 w-4" />
-                <span>
-                  La actividad se asignará automáticamente a tu departamento:
-                  <strong className="ml-1 font-semibold text-foreground">
-                    {departamentos[0].nombre}
-                  </strong>
-                </span>
-                <input
-                  type="hidden"
-                  name="departamento_ids"
-                  value={departamentos[0].id}
-                />
+            <ScrollArea className="h-[150px] w-full rounded-md border p-4">
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                {departamentos.map((depto) => (
+                  <div key={depto.id} className="flex items-center space-x-2">
+                    <Checkbox
+                      id={`depto-${depto.id}`}
+                      name="departamento_ids"
+                      value={depto.id}
+                      // --- ¡CAMBIO! Marcar los que ya están ---
+                      defaultChecked={(actividad.departamentos || []).includes(
+                        depto.id
+                      )}
+                    />
+                    <Label
+                      htmlFor={`depto-${depto.id}`}
+                      className="font-normal"
+                    >
+                      {depto.nombre}
+                    </Label>
+                  </div>
+                ))}
               </div>
-            )}
-
-            {!esSuperusuario && !esJefeDeDepartamento && (
-              <Alert variant="destructive">
-                <AlertTriangle className="h-4 w-4" />
-                <AlertTitle>Error de Permisos</AlertTitle>
-                <AlertDescription>
-                  No tienes un departamento asignado. No puedes crear
-                  actividades.
-                </AlertDescription>
-              </Alert>
-            )}
-
+            </ScrollArea>
             {estado?.errores?.departamento_ids && (
               <p className="text-sm text-destructive">
                 {estado.errores.departamento_ids[0]}
@@ -211,13 +197,12 @@ export function FormularioCrearActividad({
           </div>
         </CardContent>
 
+        {/* Footer con Botones */}
         <CardFooter className="flex justify-end gap-2 border-t px-6 py-4">
           <Button type="button" variant="outline" onClick={() => router.back()}>
             Cancelar
           </Button>
-          {/* --- ¡CORRECCIÓN 3! --- */}
-          {/* Volvemos a pasar la prop 'disabled' correctamente */}
-          <BotonGuardar disabled={!esSuperusuario && !esJefeDeDepartamento} />
+          <BotonActualizar /> {/* <-- ¡CAMBIO! */}
         </CardFooter>
       </Card>
     </form>

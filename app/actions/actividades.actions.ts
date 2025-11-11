@@ -6,16 +6,24 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
 import { ActividadesService } from "@/services/actividades.service";
-import { sql } from "@/lib/db"; // <-- ¡IMPORTANTE! Importar 'sql'
-import type { TipoActividad, Prioridad, CrearActividadDTO } from "@/types";
+import { sql } from "@/lib/db";
+import type {
+  TipoActividad,
+  CrearActividadDTO,
+  EstadoActividad,
+  ActualizarActividadDTO,
+  Rol,
+} from "@/types";
+// --- ¡CORRECCIÓN 1! ---
+import { UsuariosService } from "@/services/usuarios.service"; // <-- AÑADIDO
 
 export type EstadoFormularioActividad = {
   mensaje: string;
   errores?: Record<string, string[] | undefined>;
 };
 
-// (El schemaCrearActividad y accionCrearActividad no cambian)
-const schemaCrearActividad = z.object({
+// Usaremos el mismo esquema para crear y editar, ya que los campos son los mismos
+const schemaEditarActividad = z.object({
   titulo: z.string().min(3, "El título debe tener al menos 3 caracteres"),
 
   descripcion: z.string().optional(),
@@ -48,24 +56,48 @@ export async function accionCrearActividad(
   }
   const idUsuarioLogueado = session.user.id;
 
-  const datosValidados = schemaCrearActividad.safeParse({
+  const rolUsuario = session.user.rol as Rol;
+
+  if (rolUsuario === "jefe_departamento") {
+    // 'UsuariosService' ahora está definido
+    const idDeptoUsuario = (
+      await UsuariosService.obtenerUsuarioPorId(idUsuarioLogueado)
+    )?.departamento_id;
+    const idsEnviados = formData.getAll("departamento_ids");
+
+    if (
+      !idDeptoUsuario ||
+      idsEnviados.length !== 1 ||
+      idsEnviados[0] !== idDeptoUsuario
+    ) {
+      return {
+        mensaje:
+          "Error de permisos. Solo puede crear actividades para su propio departamento.",
+        errores: {},
+      };
+    }
+  } else if (rolUsuario !== "superusuario") {
+    return {
+      mensaje: "Acceso denegado. No tiene permisos para crear actividades.",
+      errores: {},
+    };
+  }
+
+  const datosValidados = schemaEditarActividad.safeParse({
     titulo: formData.get("titulo"),
     descripcion: formData.get("descripcion"),
     fecha_inicio: formData.get("fecha_inicio"),
     tipo: formData.get("tipo"),
     departamento_ids: formData.getAll("departamento_ids"),
   });
-
   if (!datosValidados.success) {
     return {
       mensaje: "Error de validación. Revise los campos.",
       errores: datosValidados.error.flatten().fieldErrors,
     };
   }
-
   const { titulo, descripcion, fecha_inicio, tipo, departamento_ids } =
     datosValidados.data;
-
   const dto: CrearActividadDTO = {
     titulo,
     descripcion: descripcion || undefined,
@@ -73,7 +105,6 @@ export async function accionCrearActividad(
     tipo: tipo as TipoActividad,
     departamento_ids,
   };
-
   try {
     await ActividadesService.crear(dto, idUsuarioLogueado);
   } catch (error: any) {
@@ -83,12 +114,10 @@ export async function accionCrearActividad(
       errores: {},
     };
   }
-
   revalidatePath("/dashboard/actividades");
   redirect("/dashboard/actividades");
 }
 
-// --- ¡NUEVA ACCIÓN AÑADIDA! ---
 export async function accionEliminarActividad(
   actividadId: string
 ): Promise<{ success: boolean; message: string }> {
@@ -97,14 +126,36 @@ export async function accionEliminarActividad(
     return { success: false, message: "Acceso denegado." };
   }
 
-  // (Opcional: podrías añadir lógica de roles aquí,
-  // ej. solo el creador o un superusuario puede borrar)
+  if (session.user.rol === "jefe_departamento") {
+    // 'UsuariosService' ahora está definido
+    const usuario = await UsuariosService.obtenerUsuarioPorId(session.user.id);
+    if (!usuario?.departamento_id) {
+      return {
+        success: false,
+        message: "Acceso denegado. Usuario sin departamento.",
+      };
+    }
+    const tienePermiso = await ActividadesService.verificarPertenencia(
+      actividadId,
+      usuario.departamento_id
+    );
+    if (!tienePermiso) {
+      return {
+        success: false,
+        message:
+          "Acceso denegado. No puede eliminar actividades de otros departamentos.",
+      };
+    }
+  } else if (session.user.rol !== "superusuario") {
+    return {
+      success: false,
+      message: "Acceso denegado. Permisos insuficientes.",
+    };
+  }
 
   try {
-    // Usamos 'sql' directamente para la eliminación
     const query = `DELETE FROM actividades WHERE id = $1`;
     await sql(query, [actividadId]);
-
     revalidatePath("/dashboard/actividades");
     return { success: true, message: "Actividad eliminada exitosamente." };
   } catch (error: any) {
@@ -114,4 +165,161 @@ export async function accionEliminarActividad(
       message: "Error de base de datos. No se pudo eliminar la actividad.",
     };
   }
+}
+
+const schemaActualizarEstado = z.object({
+  actividadId: z.string().uuid(),
+  nuevoEstado: z.enum(["pendiente", "en_progreso", "completada", "cancelada"]),
+});
+
+export async function accionActualizarEstadoActividad(
+  actividadId: string,
+  nuevoEstado: EstadoActividad
+): Promise<{ success: boolean; message: string; nuevoEstado?: string }> {
+  const session = await auth();
+  if (!session?.user?.id) {
+    return { success: false, message: "Acceso denegado." };
+  }
+  const usuarioId = session.user.id;
+
+  if (session.user.rol === "jefe_departamento") {
+    // 'UsuariosService' ahora está definido
+    const usuario = await UsuariosService.obtenerUsuarioPorId(session.user.id);
+    if (!usuario?.departamento_id) {
+      return {
+        success: false,
+        message: "Acceso denegado. Usuario sin departamento.",
+      };
+    }
+    const tienePermiso = await ActividadesService.verificarPertenencia(
+      actividadId,
+      usuario.departamento_id
+    );
+    if (!tienePermiso) {
+      return {
+        success: false,
+        message: "Acceso denegado. No puede modificar esta actividad.",
+      };
+    }
+  } else if (session.user.rol !== "superusuario") {
+    return {
+      success: false,
+      message: "Acceso denegado. Permisos insuficientes.",
+    };
+  }
+
+  const validation = schemaActualizarEstado.safeParse({
+    actividadId,
+    nuevoEstado,
+  });
+  if (!validation.success) {
+    return { success: false, message: "Datos inválidos para actualizar." };
+  }
+  try {
+    await ActividadesService.actualizar(
+      actividadId,
+      { estado: nuevoEstado },
+      usuarioId
+    );
+    revalidatePath("/dashboard/actividades");
+    return {
+      success: true,
+      message: `Estado actualizado.`,
+      nuevoEstado: nuevoEstado,
+    };
+  } catch (error: any) {
+    console.error("Error al actualizar estado:", error);
+    return {
+      success: false,
+      message: "Error de base de datos. No se pudo actualizar el estado.",
+    };
+  }
+}
+
+export async function accionEditarActividad(
+  actividadId: string,
+  estadoPrevio: EstadoFormularioActividad,
+  formData: FormData
+): Promise<EstadoFormularioActividad> {
+  const session = await auth();
+  if (!session?.user?.id) {
+    return {
+      mensaje: "Error de autenticación. No se pudo actualizar.",
+      errores: {},
+    };
+  }
+  const usuarioId = session.user.id;
+  const rolUsuario = session.user.rol as Rol;
+
+  if (rolUsuario === "jefe_departamento") {
+    // 'UsuariosService' ahora está definido
+    const usuario = await UsuariosService.obtenerUsuarioPorId(session.user.id);
+    if (!usuario?.departamento_id) {
+      // --- ¡CORRECCIÓN 2! 'tipo' eliminado ---
+      return {
+        mensaje: "Acceso denegado. Usuario sin departamento.",
+        errores: {},
+      };
+    }
+    const tienePermiso = await ActividadesService.verificarPertenencia(
+      actividadId,
+      usuario.departamento_id
+    );
+    if (!tienePermiso) {
+      // --- ¡CORRECCIÓN 2! 'tipo' eliminado ---
+      return {
+        mensaje: "Acceso denegado. No puede editar esta actividad.",
+        errores: {},
+      };
+    }
+    const idsEnviados = formData.getAll("departamento_ids");
+    if (
+      idsEnviados.length !== 1 ||
+      idsEnviados[0] !== usuario.departamento_id
+    ) {
+      // --- ¡CORRECCIÓN 2! 'tipo' eliminado ---
+      return {
+        mensaje:
+          "Error de permisos. Solo puede asignar actividades a su propio departamento.",
+        errores: {},
+      };
+    }
+  } else if (rolUsuario !== "superusuario") {
+    // --- ¡CORRECCIÓN 2! 'tipo' eliminado ---
+    return { mensaje: "Acceso denegado. Permisos insuficientes.", errores: {} };
+  }
+
+  const datosValidados = schemaEditarActividad.safeParse({
+    titulo: formData.get("titulo"),
+    descripcion: formData.get("descripcion"),
+    fecha_inicio: formData.get("fecha_inicio"),
+    tipo: formData.get("tipo"),
+    departamento_ids: formData.getAll("departamento_ids"),
+  });
+  if (!datosValidados.success) {
+    return {
+      mensaje: "Error de validación. Revise los campos.",
+      // --- ¡CORRECCIÓN 2! 'tipo' eliminado ---
+      errores: datosValidados.error.flatten().fieldErrors,
+    };
+  }
+  const { titulo, descripcion, fecha_inicio, tipo, departamento_ids } =
+    datosValidados.data;
+  const dto: ActualizarActividadDTO = {
+    titulo,
+    descripcion: descripcion || undefined,
+    tipo: tipo as TipoActividad,
+    departamento_ids,
+  };
+  try {
+    await ActividadesService.actualizar(actividadId, dto, usuarioId);
+  } catch (error: any) {
+    console.error("[ACCION_EDITAR_ACTIVIDAD]", error);
+    return {
+      mensaje: "Error de base de datos. No se pudo actualizar la actividad.",
+      // --- ¡CORRECCIÓN 2! 'tipo' eliminado ---
+    };
+  }
+  revalidatePath("/dashboard/actividades");
+  redirect("/dashboard/actividades");
 }

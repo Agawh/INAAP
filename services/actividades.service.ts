@@ -6,13 +6,36 @@ import type {
   ActualizarActividadDTO,
 } from "@/types";
 
+// --- ¡NUEVOS TIPOS! (Para los datos del Dashboard) ---
+export type DashboardKPIs = {
+  totalMes: number;
+  enProgreso: number;
+  pendientes: number;
+};
+
+export type ActividadSimple = Pick<
+  Actividad,
+  "id" | "titulo" | "fecha_inicio" | "estado"
+>;
+
+export type DashboardChartData = {
+  estado: string;
+  total: number;
+};
+
+export type DashboardData = {
+  kpis: DashboardKPIs;
+  proximasActividades: ActividadSimple[];
+  chartData: DashboardChartData[];
+};
+// --- FIN DE NUEVOS TIPOS ---
+
 export class ActividadesService {
   static async crear(
     datos: CrearActividadDTO,
     usuarioId: string
   ): Promise<Actividad> {
     try {
-      // --- SECCIÓN ACTUALIZADA ---
       // Construcción dinámica de la consulta para usar los DEFAULT de la BD
 
       const campos: string[] = [
@@ -31,21 +54,10 @@ export class ActividadesService {
       ];
 
       // Añadimos los campos opcionales SOLO si vienen en el DTO
-      // Si no vienen, la BD usará el DEFAULT ('media', null, null)
       if (datos.prioridad) {
         campos.push("prioridad");
         valores.push(datos.prioridad);
       }
-
-      // (Mantenemos la lógica por si en el futuro se vuelve a añadir)
-      // if (datos.fecha_fin) {
-      //   campos.push('fecha_fin');
-      //   valores.push(datos.fecha_fin);
-      // }
-      // if (datos.asignado_a) {
-      //   campos.push('asignado_a');
-      //   valores.push(datos.asignado_a);
-      // }
 
       // Creamos los placeholders ($1, $2, $3...)
       const placeholders = campos.map((_, i) => `$${i + 1}`).join(", ");
@@ -55,12 +67,11 @@ export class ActividadesService {
         VALUES (${placeholders})
         RETURNING *
       `;
-      // --- FIN DE SECCIÓN ACTUALIZADA ---
 
       const resultActividad = await sql(queryActividad, valores);
       const actividad = resultActividad.rows[0] as Actividad;
 
-      // Asociar departamentos (sin cambios)
+      // Asociar departamentos
       if (datos.departamento_ids && datos.departamento_ids.length > 0) {
         for (const deptId of datos.departamento_ids) {
           const queryDept = `
@@ -71,7 +82,7 @@ export class ActividadesService {
         }
       }
 
-      // Registrar en auditoría (sin cambios)
+      // Registrar en auditoría
       const queryAuditoria = `
         INSERT INTO registro_actividades (actividad_id, usuario_id, accion, cambios)
         VALUES ($1, $2, 'creada', $3)
@@ -150,58 +161,97 @@ export class ActividadesService {
     }
   }
 
+  /**
+   * Verifica si una actividad pertenece a un departamento específico.
+   * Usado para la seguridad de las acciones de Jefes de Departamento.
+   */
+  static async verificarPertenencia(
+    actividadId: string,
+    departamentoId: string
+  ): Promise<boolean> {
+    try {
+      const query = `
+        SELECT 1 
+        FROM actividades_departamentos
+        WHERE actividad_id = $1 AND departamento_id = $2
+        LIMIT 1
+      `;
+      const result = await sql(query, [actividadId, departamentoId]);
+      return result.rows.length > 0; // true si encuentra coincidencia, false si no
+    } catch (error) {
+      console.error("[v0] Error verificando pertenencia:", error);
+      return false;
+    }
+  }
+
   static async actualizar(
     id: string,
     datos: ActualizarActividadDTO,
     usuarioId: string
   ): Promise<Actividad> {
     try {
-      const setClause = [];
-      const params: any[] = [id, usuarioId, JSON.stringify(datos)];
-      let paramIndex = 4;
+      // 1. Crear listas de parámetros separadas
+      const setClause: string[] = [];
+      const updateParams: any[] = []; // Parámetros SÓLO para el UPDATE
+      let paramIndex = 1; // Empezar en $1
 
+      // 2. Construir la consulta de UPDATE
       if (datos.titulo !== undefined) {
         setClause.push(`titulo = $${paramIndex}`);
-        params.push(datos.titulo);
+        updateParams.push(datos.titulo);
         paramIndex++;
       }
       if (datos.descripcion !== undefined) {
         setClause.push(`descripcion = $${paramIndex}`);
-        params.push(datos.descripcion);
+        updateParams.push(datos.descripcion);
         paramIndex++;
       }
       if (datos.estado !== undefined) {
         setClause.push(`estado = $${paramIndex}`);
-        params.push(datos.estado);
+        updateParams.push(datos.estado);
         paramIndex++;
       }
       if (datos.prioridad !== undefined) {
         setClause.push(`prioridad = $${paramIndex}`);
-        params.push(datos.prioridad);
+        updateParams.push(datos.prioridad);
         paramIndex++;
       }
       if (datos.asignado_a !== undefined) {
         setClause.push(`asignado_a = $${paramIndex}`);
-        params.push(datos.asignado_a);
+        updateParams.push(datos.asignado_a);
         paramIndex++;
       }
 
+      if (datos.tipo !== undefined) {
+        setClause.push(`tipo = $${paramIndex}`);
+        updateParams.push(datos.tipo);
+        paramIndex++;
+      }
+
+      // 3. Manejar el caso de que no haya campos para actualizar
       if (setClause.length === 0 && !datos.departamento_ids) {
         const actividad = await this.obtenerPorId(id);
         if (!actividad) throw new Error("Actividad no encontrada");
         return actividad;
       }
 
+      // 4. Ejecutar la consulta de UPDATE (si hay campos)
       if (setClause.length > 0) {
+        // Añadimos el 'id' al final de la lista de parámetros
+        updateParams.push(id);
+
+        // El 'id' será el último parámetro
         const queryUpdate = `
           UPDATE actividades
           SET ${setClause.join(", ")}
-          WHERE id = $1
+          WHERE id = $${paramIndex} 
           RETURNING *
         `;
-        await sql(queryUpdate, params);
+
+        await sql(queryUpdate, updateParams);
       }
 
+      // 5. Actualizar departamentos
       if (datos.departamento_ids) {
         await sql(
           `DELETE FROM actividades_departamentos WHERE actividad_id = $1`,
@@ -217,12 +267,14 @@ export class ActividadesService {
         }
       }
 
+      // 6. Registrar en auditoría
       const queryAuditoria = `
         INSERT INTO registro_actividades (actividad_id, usuario_id, accion, cambios)
         VALUES ($1, $2, 'actualizada', $3)
       `;
       await sql(queryAuditoria, [id, usuarioId, JSON.stringify(datos)]);
 
+      // 7. Devolver la actividad actualizada
       const actividadActualizada = await this.obtenerPorId(id);
       if (!actividadActualizada)
         throw new Error("Actividad no encontrada después de actualizar");
@@ -230,6 +282,95 @@ export class ActividadesService {
     } catch (error) {
       console.error("[v0] Error actualizando actividad:", error);
       throw error;
+    }
+  }
+
+  // --- ¡FUNCIÓN 'obtenerDatosDashboard' CORREGIDA! ---
+  /**
+   * Obtiene todos los datos agregados para el Panel de Control principal.
+   */
+  static async obtenerDatosDashboard(): Promise<DashboardData> {
+    try {
+      // --- ¡CORRECCIÓN! Se cambió de 'sql`...`' a 'sql("...")' ---
+
+      // 1. Consultas para los KPIs
+      const kpiQueries = [
+        // Total actividades en el mes actual
+        sql(
+          "SELECT COUNT(*) FROM actividades WHERE date_trunc('month', fecha_inicio) = date_trunc('month', CURRENT_DATE)"
+        ),
+        // Total en progreso (global)
+        sql("SELECT COUNT(*) FROM actividades WHERE estado = $1", [
+          "en_progreso",
+        ]),
+        // Total pendientes (global)
+        sql("SELECT COUNT(*) FROM actividades WHERE estado = $1", [
+          "pendiente",
+        ]),
+      ];
+
+      // 2. Consulta para las próximas actividades (Top 5)
+      const proximasQuery = sql(
+        `SELECT id, titulo, fecha_inicio, estado
+        FROM actividades
+        WHERE estado = $1 AND fecha_inicio >= CURRENT_DATE
+        ORDER BY fecha_inicio ASC
+        LIMIT 5`,
+        ["pendiente"]
+      );
+
+      // 3. Consulta para el gráfico (actividades del mes actual por estado)
+      const chartQuery = sql(
+        `SELECT estado, COUNT(*) as total
+        FROM actividades
+        WHERE date_trunc('month', fecha_inicio) = date_trunc('month', CURRENT_DATE)
+        GROUP BY estado`
+      );
+      // --- FIN DE LA CORRECCIÓN ---
+
+      // Ejecutamos todas las consultas en paralelo
+      const [kpiResults, proximasResult, chartResult] = await Promise.all([
+        Promise.all(kpiQueries),
+        proximasQuery,
+        chartQuery,
+      ]);
+
+      // 4. Procesamos los resultados
+      const kpis: DashboardKPIs = {
+        totalMes: parseInt(kpiResults[0].rows[0].count, 10) || 0,
+        enProgreso: parseInt(kpiResults[1].rows[0].count, 10) || 0,
+        pendientes: parseInt(kpiResults[2].rows[0].count, 10) || 0,
+      };
+
+      const proximasActividades: ActividadSimple[] = proximasResult.rows.map(
+        (r: any) => ({
+          id: r.id,
+          titulo: r.titulo,
+          fecha_inicio: r.fecha_inicio,
+          estado: r.estado,
+        })
+      );
+
+      const chartData: DashboardChartData[] = chartResult.rows.map(
+        (r: any) => ({
+          estado: r.estado,
+          total: parseInt(r.total, 10),
+        })
+      );
+
+      return {
+        kpis,
+        proximasActividades,
+        chartData,
+      };
+    } catch (error) {
+      console.error("[v0] Error obteniendo datos del dashboard:", error);
+      // Devolvemos data vacía en caso de error
+      return {
+        kpis: { totalMes: 0, enProgreso: 0, pendientes: 0 },
+        proximasActividades: [],
+        chartData: [],
+      };
     }
   }
 }

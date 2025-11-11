@@ -31,6 +31,7 @@ export interface Usuario {
   activo: boolean;
 }
 
+// (Interfaces Actividad, Notificacion, ConfiguracionNotificaciones... sin cambios)
 export interface Actividad {
   id: string;
   titulo: string;
@@ -70,18 +71,11 @@ export interface CrearActividadDTO {
   descripcion?: string;
   tipo: TipoActividad;
   fecha_inicio: Date;
-  // --- CAMBIO: 'fecha_fin' eliminado ---
-  // fecha_fin?: Date; // <-- ELIMINADO
-
-  // --- CAMBIO: 'prioridad' ahora es opcional ---
-  prioridad?: Prioridad; // <-- ACTUALIZADO (antes era obligatorio)
-
+  prioridad?: Prioridad;
   departamento_ids: string[];
-
-  // --- CAMBIO: 'asignado_a' eliminado ---
-  // asignado_a?: string; // <-- ELIMINADO
 }
 
+// --- ¡LA CORRECCIÓN ESTÁ AQUÍ! ---
 export interface ActualizarActividadDTO {
   titulo?: string;
   descripcion?: string;
@@ -89,6 +83,7 @@ export interface ActualizarActividadDTO {
   prioridad?: Prioridad;
   asignado_a?: string;
   departamento_ids?: string[];
+  tipo?: TipoActividad; // <-- CAMPO AÑADIDO
 }
 
 export interface RegistroActividad {
