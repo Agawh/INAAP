@@ -2,7 +2,9 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { ActividadesService } from "@/services/actividades.service";
-// Importamos el componente (que crearemos en el sig. paso)
+
+// --- ¡CAMBIO! ---
+// Importamos el panel de control directamente, sin 'dynamic'.
 import { PanelDeControl } from "@/components/dashboard/panel-control";
 
 export default async function DashboardPage() {
@@ -13,7 +15,7 @@ export default async function DashboardPage() {
     redirect("/");
   }
 
-  // 2. Obtener los datos para el Dashboard (¡Usando nuestra nueva función!)
+  // 2. Obtener los datos para el Dashboard
   const dashboardData = await ActividadesService.obtenerDatosDashboard();
 
   return (

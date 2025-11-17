@@ -68,7 +68,7 @@ export class UsuariosService {
     }
   }
 
-  // VERIFICAR PASSWORD
+  // VERIFICAR PASSWORD (PARA MI PERFIL)
   static async verificarPassword(
     userId: string,
     passwordActual: string
@@ -85,7 +85,7 @@ export class UsuariosService {
       return verifyPassword(passwordActual, hash);
     } catch (error) {
       console.error("[v0] Error verificando password:", error);
-      return false;
+      return false; // Ante cualquier error, denegar
     }
   }
 
@@ -174,6 +174,13 @@ export class UsuariosService {
         params.push(datos.telefono);
       }
 
+      // --- ¡NUEVO CAMPO! ---
+      // Si viene el telegram_chat_id, lo actualizamos (o lo ponemos NULL si viene vacío)
+      if (datos.telegram_chat_id !== undefined) {
+        campos.push(`telegram_chat_id = $${paramIndex++}`);
+        params.push(datos.telegram_chat_id || null);
+      }
+
       if (passwordHash) {
         campos.push(`password_hash = $${paramIndex++}`);
         params.push(passwordHash);
@@ -201,16 +208,13 @@ export class UsuariosService {
     }
   }
 
-  // --- ¡NUEVA FUNCIÓN AÑADIDA! ---
-  /**
-   * Obtiene todos los usuarios (activos) que pertenecen a un departamento específico.
-   */
+  // OBTENER USUARIOS POR DEPARTAMENTO
   static async obtenerUsuariosPorDepartamentoId(
     departamentoId: string
   ): Promise<Usuario[]> {
     try {
       const query = `
-        SELECT id, email, nombre_completo, rol, departamento_id, cedula, telefono
+        SELECT id, email, nombre_completo, rol, departamento_id, cedula, telefono, telegram_chat_id
         FROM usuarios
         WHERE departamento_id = $1 AND activo = true
         ORDER BY nombre_completo ASC
@@ -223,7 +227,7 @@ export class UsuariosService {
     }
   }
 
-  // (Funciones de notificaciones sin cambios)
+  // ACTUALIZAR CONFIGURACIÓN DE NOTIFICACIONES
   static async actualizarConfiguracionNotificaciones(
     usuarioId: string,
     config: Partial<ConfiguracionNotificaciones>
@@ -257,6 +261,7 @@ export class UsuariosService {
     }
   }
 
+  // OBTENER CONFIGURACIÓN DE NOTIFICACIONES
   static async obtenerConfiguracionNotificaciones(
     usuarioId: string
   ): Promise<ConfiguracionNotificaciones | null> {

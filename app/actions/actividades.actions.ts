@@ -14,24 +14,29 @@ import type {
   ActualizarActividadDTO,
   Rol,
 } from "@/types";
-// --- ¡CORRECCIÓN 1! ---
-import { UsuariosService } from "@/services/usuarios.service"; // <-- AÑADIDO
+import { UsuariosService } from "@/services/usuarios.service";
 
 export type EstadoFormularioActividad = {
   mensaje: string;
   errores?: Record<string, string[] | undefined>;
 };
 
-// Usaremos el mismo esquema para crear y editar, ya que los campos son los mismos
+// --- ¡CAMBIO! (schemaEditarActividad) ---
 const schemaEditarActividad = z.object({
   titulo: z.string().min(3, "El título debe tener al menos 3 caracteres"),
 
   descripcion: z.string().optional(),
 
+  // --- ¡BUG 1 CORREGIDO! ---
+  // Ya no usamos .pipe(z.coerce.date())
+  // Solo validamos que sea un string con el formato YYYY-MM-DD
   fecha_inicio: z
     .string()
-    .min(1, "La fecha de inicio es requerida.")
-    .pipe(z.coerce.date()),
+    .min(10, "La fecha de inicio es requerida.")
+    .regex(
+      /^\d{4}-\d{2}-\d{2}$/,
+      "Formato de fecha inválido (debe ser YYYY-MM-DD)"
+    ),
 
   tipo: z
     .string()
@@ -43,6 +48,7 @@ const schemaEditarActividad = z.object({
     .min(1, "Debe seleccionar al menos un departamento."),
 });
 
+// (accionCrearActividad - ahora usa el nuevo schema, no hay más cambios)
 export async function accionCrearActividad(
   estadoPrevio: EstadoFormularioActividad,
   formData: FormData
@@ -59,7 +65,6 @@ export async function accionCrearActividad(
   const rolUsuario = session.user.rol as Rol;
 
   if (rolUsuario === "jefe_departamento") {
-    // 'UsuariosService' ahora está definido
     const idDeptoUsuario = (
       await UsuariosService.obtenerUsuarioPorId(idUsuarioLogueado)
     )?.departamento_id;
@@ -83,6 +88,7 @@ export async function accionCrearActividad(
     };
   }
 
+  // Ahora usa el schema corregido (fecha como string)
   const datosValidados = schemaEditarActividad.safeParse({
     titulo: formData.get("titulo"),
     descripcion: formData.get("descripcion"),
@@ -96,12 +102,17 @@ export async function accionCrearActividad(
       errores: datosValidados.error.flatten().fieldErrors,
     };
   }
-  const { titulo, descripcion, fecha_inicio, tipo, departamento_ids } =
-    datosValidados.data;
+  const {
+    titulo,
+    descripcion,
+    fecha_inicio, // <-- Ahora es un string
+    tipo,
+    departamento_ids,
+  } = datosValidados.data;
   const dto: CrearActividadDTO = {
     titulo,
     descripcion: descripcion || undefined,
-    fecha_inicio,
+    fecha_inicio, // <-- Se pasa como string
     tipo: tipo as TipoActividad,
     departamento_ids,
   };
@@ -118,6 +129,7 @@ export async function accionCrearActividad(
   redirect("/dashboard/actividades");
 }
 
+// (accionEliminarActividad y accionActualizarEstadoActividad sin cambios)
 export async function accionEliminarActividad(
   actividadId: string
 ): Promise<{ success: boolean; message: string }> {
@@ -127,7 +139,6 @@ export async function accionEliminarActividad(
   }
 
   if (session.user.rol === "jefe_departamento") {
-    // 'UsuariosService' ahora está definido
     const usuario = await UsuariosService.obtenerUsuarioPorId(session.user.id);
     if (!usuario?.departamento_id) {
       return {
@@ -183,7 +194,6 @@ export async function accionActualizarEstadoActividad(
   const usuarioId = session.user.id;
 
   if (session.user.rol === "jefe_departamento") {
-    // 'UsuariosService' ahora está definido
     const usuario = await UsuariosService.obtenerUsuarioPorId(session.user.id);
     if (!usuario?.departamento_id) {
       return {
@@ -236,6 +246,7 @@ export async function accionActualizarEstadoActividad(
   }
 }
 
+// --- ¡CAMBIO! (accionEditarActividad) ---
 export async function accionEditarActividad(
   actividadId: string,
   estadoPrevio: EstadoFormularioActividad,
@@ -252,10 +263,8 @@ export async function accionEditarActividad(
   const rolUsuario = session.user.rol as Rol;
 
   if (rolUsuario === "jefe_departamento") {
-    // 'UsuariosService' ahora está definido
     const usuario = await UsuariosService.obtenerUsuarioPorId(session.user.id);
     if (!usuario?.departamento_id) {
-      // --- ¡CORRECCIÓN 2! 'tipo' eliminado ---
       return {
         mensaje: "Acceso denegado. Usuario sin departamento.",
         errores: {},
@@ -266,7 +275,6 @@ export async function accionEditarActividad(
       usuario.departamento_id
     );
     if (!tienePermiso) {
-      // --- ¡CORRECCIÓN 2! 'tipo' eliminado ---
       return {
         mensaje: "Acceso denegado. No puede editar esta actividad.",
         errores: {},
@@ -277,7 +285,6 @@ export async function accionEditarActividad(
       idsEnviados.length !== 1 ||
       idsEnviados[0] !== usuario.departamento_id
     ) {
-      // --- ¡CORRECCIÓN 2! 'tipo' eliminado ---
       return {
         mensaje:
           "Error de permisos. Solo puede asignar actividades a su propio departamento.",
@@ -285,10 +292,10 @@ export async function accionEditarActividad(
       };
     }
   } else if (rolUsuario !== "superusuario") {
-    // --- ¡CORRECCIÓN 2! 'tipo' eliminado ---
     return { mensaje: "Acceso denegado. Permisos insuficientes.", errores: {} };
   }
 
+  // Se usa el schema corregido (fecha como string)
   const datosValidados = schemaEditarActividad.safeParse({
     titulo: formData.get("titulo"),
     descripcion: formData.get("descripcion"),
@@ -299,25 +306,32 @@ export async function accionEditarActividad(
   if (!datosValidados.success) {
     return {
       mensaje: "Error de validación. Revise los campos.",
-      // --- ¡CORRECCIÓN 2! 'tipo' eliminado ---
       errores: datosValidados.error.flatten().fieldErrors,
     };
   }
-  const { titulo, descripcion, fecha_inicio, tipo, departamento_ids } =
-    datosValidados.data;
+  const {
+    titulo,
+    descripcion,
+    fecha_inicio, // <-- Sigue siendo un string
+    tipo,
+    departamento_ids,
+  } = datosValidados.data;
+
+  // --- ¡BUG 2 CORREGIDO! ---
   const dto: ActualizarActividadDTO = {
     titulo,
     descripcion: descripcion || undefined,
     tipo: tipo as TipoActividad,
     departamento_ids,
+    fecha_inicio: fecha_inicio, // <-- AÑADIDO (¡El bug estaba aquí!)
   };
+
   try {
     await ActividadesService.actualizar(actividadId, dto, usuarioId);
   } catch (error: any) {
     console.error("[ACCION_EDITAR_ACTIVIDAD]", error);
     return {
       mensaje: "Error de base de datos. No se pudo actualizar la actividad.",
-      // --- ¡CORRECCIÓN 2! 'tipo' eliminado ---
     };
   }
   revalidatePath("/dashboard/actividades");

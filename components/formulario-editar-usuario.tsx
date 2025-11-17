@@ -1,9 +1,9 @@
+// /components/formulario-editar-usuario.tsx
 "use client";
 
-// --- ¡CORRECCIÓN DE IMPORTACIÓN! ---
 import * as React from "react";
-import { useActionState } from "react"; // Se importa de 'react'
-import { useFormStatus } from "react-dom"; // Se importa de 'react-dom'
+import { useActionState } from "react";
+import { useFormStatus } from "react-dom";
 import { useRouter } from "next/navigation";
 import { AlertTriangle, Save } from "lucide-react";
 
@@ -52,10 +52,9 @@ function BotonEditar() {
   );
 }
 
-// Props que el formulario recibirá
 type FormularioEditarUsuarioProps = {
   departamentos: Departamento[];
-  usuario: Usuario; // El usuario a editar
+  usuario: Usuario;
 };
 
 export function FormularioEditarUsuario({
@@ -64,18 +63,13 @@ export function FormularioEditarUsuario({
 }: FormularioEditarUsuarioProps) {
   const router = useRouter();
   const estadoInicial: EstadoFormulario = { mensaje: "", errores: {} };
-
-  // Vinculamos la acción con el ID del usuario
   const accionEditarConId = accionEditarUsuario.bind(null, usuario.id);
-
   const [estado, dispatch] = useActionState(accionEditarConId, estadoInicial);
 
   return (
     <form action={dispatch}>
       <Card>
         <CardContent className="grid grid-cols-1 gap-6 pt-6 md:grid-cols-2">
-          {/* Alerta de Error General */}
-          {/* --- ¡CORRECCIÓN! Añadida comprobación de 'estado' --- */}
           {estado?.mensaje &&
             estado.errores &&
             Object.keys(estado.errores).length === 0 && (
@@ -95,7 +89,7 @@ export function FormularioEditarUsuario({
               defaultValue={usuario.nombre_completo}
               aria-invalid={!!estado?.errores?.nombre_completo}
               pattern="[a-zA-Z\sñÑáéíóúÁÉÍÓÚ]*"
-              title="El nombre solo debe contener letras y espacios"
+              title="Solo letras y espacios"
             />
             {estado?.errores?.nombre_completo && (
               <p className="text-sm text-destructive">
@@ -115,7 +109,7 @@ export function FormularioEditarUsuario({
               type="text"
               pattern="[0-9]*"
               inputMode="numeric"
-              title="La cédula solo debe contener números"
+              title="Solo números"
             />
             {estado?.errores?.cedula && (
               <p className="text-sm text-destructive">
@@ -169,13 +163,30 @@ export function FormularioEditarUsuario({
               aria-invalid={!!estado?.errores?.telefono}
               pattern="[0-9]*"
               inputMode="numeric"
-              title="El teléfono solo debe contener números"
+              title="Solo números"
             />
             {estado?.errores?.telefono && (
               <p className="text-sm text-destructive">
                 {estado.errores.telefono[0]}
               </p>
             )}
+          </div>
+
+          {/* --- ¡NUEVO CAMPO! Telegram ID --- */}
+          <div className="grid gap-2">
+            <Label htmlFor="telegram_chat_id">ID de Telegram</Label>
+            <Input
+              id="telegram_chat_id"
+              name="telegram_chat_id"
+              type="text"
+              defaultValue={usuario.telegram_chat_id || ""}
+              placeholder="Ej. 123456789"
+              pattern="[0-9]*"
+              title="El ID de Telegram es numérico"
+            />
+            <p className="text-xs text-muted-foreground">
+              Obtenlo enviando un mensaje al bot y revisando la API.
+            </p>
           </div>
 
           {/* Rol */}

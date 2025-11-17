@@ -1,14 +1,14 @@
+// /app/actions/usuarios.actions.ts
 "use server";
 
 import { z } from "zod";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
-// --- ¡IMPORTACIÓN CORREGIDA! ---
 import { UsuariosService } from "@/services/usuarios.service";
 import { sql } from "@/lib/db";
 
-// --- ¡VALIDACIONES CORREGIDAS! ---
+// --- Schema CREAR ---
 const schemaCrearUsuario = z.object({
   nombre_completo: z
     .string()
@@ -24,7 +24,6 @@ const schemaCrearUsuario = z.object({
   email: z.string().email("Email inválido"),
   password: z.string().min(8, "La contraseña debe tener al menos 8 caracteres"),
 
-  // Usamos z.string().min(1, ...) para validar que el <Select> no esté vacío
   rol: z
     .string()
     .min(1, "Debe seleccionar un rol")
@@ -40,7 +39,7 @@ const schemaCrearUsuario = z.object({
   telefono: z.string().optional().or(z.literal("")),
 });
 
-// Esquema para editar (contraseña opcional)
+// --- Schema EDITAR ---
 const schemaEditarUsuario = schemaCrearUsuario.extend({
   password: z
     .string()
@@ -49,10 +48,10 @@ const schemaEditarUsuario = schemaCrearUsuario.extend({
     .refine((pass) => pass === "" || !pass || pass.length >= 8, {
       message: "La nueva contraseña debe tener al menos 8 caracteres",
     }),
+  // --- ¡NUEVO CAMPO! ---
+  telegram_chat_id: z.string().optional().or(z.literal("")),
 });
 
-// --- ¡TIPO CORREGIDO! ---
-// (Eliminada la propiedad errónea '_')
 export type EstadoFormulario = {
   mensaje: string;
   errores?: {
@@ -63,11 +62,11 @@ export type EstadoFormulario = {
     rol?: string[];
     departamento_id?: string[];
     telefono?: string[];
+    telegram_chat_id?: string[];
   };
 };
 
-// --- ¡ACCIÓN CORREGIDA! ---
-// Ahora llama a UsuariosService.crearUsuario y la función existe
+// --- ACCIÓN CREAR ---
 export async function accionCrearUsuario(
   estadoPrevio: EstadoFormulario,
   formData: FormData
@@ -99,7 +98,7 @@ export async function accionCrearUsuario(
       cedula,
       telefono,
     } = datosValidados.data;
-    // --- ¡Llamada corregida al servicio! ---
+
     await UsuariosService.crearUsuario(
       email,
       password,
@@ -135,7 +134,7 @@ export async function accionCrearUsuario(
   redirect("/dashboard/usuarios");
 }
 
-// --- ACCIÓN DE EDITAR (YA ESTABA BIEN) ---
+// --- ACCIÓN EDITAR ---
 export async function accionEditarUsuario(
   userId: string,
   estadoPrevio: EstadoFormulario,
@@ -149,6 +148,8 @@ export async function accionEditarUsuario(
     rol: formData.get("rol"),
     departamento_id: formData.get("departamento_id"),
     telefono: formData.get("telefono"),
+    // --- ¡NUEVO CAMPO! ---
+    telegram_chat_id: formData.get("telegram_chat_id"),
   });
 
   if (!datosValidados.success) {
@@ -159,11 +160,16 @@ export async function accionEditarUsuario(
   }
 
   try {
-    const { password, ...datosUsuario } = datosValidados.data;
+    const { password, telegram_chat_id, ...datosUsuario } = datosValidados.data;
+
+    const datosParaActualizar = {
+      ...datosUsuario,
+      telegram_chat_id: telegram_chat_id || undefined,
+    };
 
     await UsuariosService.actualizarUsuario(
       userId,
-      datosUsuario,
+      datosParaActualizar,
       password || undefined
     );
   } catch (error: any) {
@@ -194,7 +200,7 @@ export async function accionEditarUsuario(
   redirect("/dashboard/usuarios");
 }
 
-// --- ACCIÓN DE ELIMINAR (YA ESTABA BIEN) ---
+// --- ACCIÓN ELIMINAR ---
 export async function accionEliminarUsuario(
   userId: string
 ): Promise<{ success: boolean; message: string }> {

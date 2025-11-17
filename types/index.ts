@@ -31,13 +31,12 @@ export interface Usuario {
   activo: boolean;
 }
 
-// (Interfaces Actividad, Notificacion, ConfiguracionNotificaciones... sin cambios)
 export interface Actividad {
   id: string;
   titulo: string;
   descripcion?: string;
   tipo: TipoActividad;
-  fecha_inicio: Date;
+  fecha_inicio: Date; // Al leer de la BD, pg la convierte en Date
   fecha_fin?: Date;
   estado: EstadoActividad;
   prioridad: Prioridad;
@@ -70,12 +69,11 @@ export interface CrearActividadDTO {
   titulo: string;
   descripcion?: string;
   tipo: TipoActividad;
-  fecha_inicio: Date;
+  fecha_inicio: string; // <-- ¡CAMBIO! de Date a string
   prioridad?: Prioridad;
   departamento_ids: string[];
 }
 
-// --- ¡LA CORRECCIÓN ESTÁ AQUÍ! ---
 export interface ActualizarActividadDTO {
   titulo?: string;
   descripcion?: string;
@@ -83,7 +81,8 @@ export interface ActualizarActividadDTO {
   prioridad?: Prioridad;
   asignado_a?: string;
   departamento_ids?: string[];
-  tipo?: TipoActividad; // <-- CAMPO AÑADIDO
+  tipo?: TipoActividad;
+  fecha_inicio?: string; // <-- ¡CAMBIO! Añadido como string
 }
 
 export interface RegistroActividad {

@@ -2,6 +2,7 @@
 "use client";
 
 import * as React from "react";
+import { useTransition } from "react"; // <-- Añadido
 import Link from "next/link";
 import {
   Card,
@@ -23,21 +24,37 @@ import {
   ChartContainer,
   ChartTooltip,
   ChartTooltipContent,
-  // ChartLegend, // No lo estamos usando, así que lo comento
 } from "@/components/ui/chart";
-// Importamos los componentes de Recharts para el gráfico
 import { PieChart, Pie, Cell, Tooltip } from "recharts";
-import { Activity, CalendarCheck, ClipboardList, Loader2 } from "lucide-react";
-// Importamos los tipos de datos que definimos en el servicio
+import {
+  Activity,
+  CalendarCheck,
+  ClipboardList,
+  Loader2,
+  MoreVertical, // <-- Añadido
+  CheckCircle2, // <-- Añadido
+  CircleDashed, // <-- Añadido
+  Undo2, // <-- Añadido
+} from "lucide-react";
 import type {
   DashboardData,
   DashboardChartData,
 } from "@/services/actividades.service";
 import type { ChartConfig } from "@/components/ui/chart";
+import type { EstadoActividad } from "@/types"; // <-- Añadido
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu"; // <-- Añadido
+import { Button } from "@/components/ui/button"; // <-- Añadido
+import { useToast } from "@/hooks/use-toast"; // <-- Añadido
+import { accionActualizarEstadoActividad } from "@/app/actions/actividades.actions"; // <-- Añadido
 
-// --- Configuración del Gráfico (CORREGIDA) ---
+// --- Configuración del Gráfico ---
 const chartConfig = {
-  // --- 'total' eliminado de aquí ---
   pendiente: {
     label: "Pendiente",
     color: "hsl(var(--chart-2))", // Azul
@@ -55,10 +72,9 @@ const chartConfig = {
     color: "hsl(var(--chart-3))", // Rojo/Violeta
   },
 } satisfies ChartConfig;
-// --- Fin Configuración Gráfico ---
 
-// --- Función para traducir el estado (local) ---
-function traducirEstado(estado: string) {
+// --- Función para traducir el estado ---
+function traducirEstado(estado: string | EstadoActividad) {
   switch (estado) {
     case "pendiente":
       return "Pendiente";
@@ -76,16 +92,47 @@ function traducirEstado(estado: string) {
 export function PanelDeControl({ data }: { data: DashboardData }) {
   const { kpis, proximasActividades, chartData } = data;
 
-  // Calculamos el total para el centro del gráfico de dona
+  const { toast } = useToast();
+  const [isPending, startTransition] = useTransition();
+
   const totalActividadesMes = React.useMemo(() => {
     return chartData.reduce((acc, curr) => acc + curr.total, 0);
   }, [chartData]);
 
-  // Formateador de fecha
   const formatDate = (date: Date) => {
     return new Date(date).toLocaleDateString("es-ES", {
       day: "2-digit",
       month: "long",
+    });
+  };
+
+  // --- Lógica para el cambio de estado ---
+  const handleEstadoChange = (
+    actividadId: string,
+    titulo: string,
+    nuevoEstado: EstadoActividad
+  ) => {
+    startTransition(async () => {
+      const resultado = await accionActualizarEstadoActividad(
+        actividadId,
+        nuevoEstado
+      );
+      if (resultado.success && resultado.nuevoEstado) {
+        toast({
+          title: `¡Actualizado!`,
+          description: `La actividad "${titulo}" se marcó como "${traducirEstado(
+            resultado.nuevoEstado
+          )}".`,
+        });
+        // La actualización de la lista se verá la próxima vez que cargue la página
+        // (lo cual es suficiente para un dashboard)
+      } else {
+        toast({
+          title: "Error al actualizar",
+          description: resultado.message,
+          variant: "destructive",
+        });
+      }
     });
   };
 
@@ -128,7 +175,7 @@ export function PanelDeControl({ data }: { data: DashboardData }) {
         </CardContent>
       </Card>
 
-      {/* --- Lista de Próximas Actividades --- */}
+      {/* --- Lista de Próximas Actividades (Accionable) --- */}
       <Card className="lg:col-span-2">
         <CardHeader>
           <CardTitle>Próximas Actividades Pendientes</CardTitle>
@@ -142,12 +189,13 @@ export function PanelDeControl({ data }: { data: DashboardData }) {
               <TableRow>
                 <TableHead>Actividad</TableHead>
                 <TableHead>Fecha de Inicio</TableHead>
+                <TableHead className="text-right">Acciones</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {proximasActividades.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={2} className="h-24 text-center">
+                  <TableCell colSpan={3} className="h-24 text-center">
                     No hay actividades pendientes próximas.
                   </TableCell>
                 </TableRow>
@@ -163,6 +211,53 @@ export function PanelDeControl({ data }: { data: DashboardData }) {
                       </Link>
                     </TableCell>
                     <TableCell>{formatDate(act.fecha_inicio)}</TableCell>
+
+                    <TableCell className="text-right">
+                      <DropdownMenu modal={false}>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon">
+                            <MoreVertical className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem
+                            disabled={isPending}
+                            onSelect={() =>
+                              handleEstadoChange(
+                                act.id,
+                                act.titulo,
+                                "en_progreso"
+                              )
+                            }
+                          >
+                            {isPending ? (
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            ) : (
+                              <CircleDashed className="mr-2 h-4 w-4" />
+                            )}
+                            Marcar "En Progreso"
+                          </DropdownMenuItem>
+
+                          <DropdownMenuItem
+                            disabled={isPending}
+                            onSelect={() =>
+                              handleEstadoChange(
+                                act.id,
+                                act.titulo,
+                                "completada"
+                              )
+                            }
+                          >
+                            {isPending ? (
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            ) : (
+                              <CheckCircle2 className="mr-2 h-4 w-4" />
+                            )}
+                            Marcar "Completada"
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
                   </TableRow>
                 ))
               )}
@@ -233,7 +328,6 @@ export function PanelDeControl({ data }: { data: DashboardData }) {
                     />
                   ))}
                 </Pie>
-                {/* Texto en el centro de la dona */}
                 <text
                   x="50%"
                   y="50%"

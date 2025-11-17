@@ -6,7 +6,7 @@ import type {
   ActualizarActividadDTO,
 } from "@/types";
 
-// --- ¡NUEVOS TIPOS! (Para los datos del Dashboard) ---
+// --- Tipos para los datos del Dashboard ---
 export type DashboardKPIs = {
   totalMes: number;
   enProgreso: number;
@@ -28,7 +28,7 @@ export type DashboardData = {
   proximasActividades: ActividadSimple[];
   chartData: DashboardChartData[];
 };
-// --- FIN DE NUEVOS TIPOS ---
+// ------------------------------------------
 
 export class ActividadesService {
   static async crear(
@@ -36,8 +36,6 @@ export class ActividadesService {
     usuarioId: string
   ): Promise<Actividad> {
     try {
-      // Construcción dinámica de la consulta para usar los DEFAULT de la BD
-
       const campos: string[] = [
         "titulo",
         "descripcion",
@@ -49,17 +47,16 @@ export class ActividadesService {
         datos.titulo,
         datos.descripcion || null,
         datos.tipo,
-        datos.fecha_inicio,
+        datos.fecha_inicio, // Se pasa como string
         usuarioId,
       ];
 
-      // Añadimos los campos opcionales SOLO si vienen en el DTO
+      // Añadimos prioridad solo si viene definida (si no, usa DEFAULT 'media')
       if (datos.prioridad) {
         campos.push("prioridad");
         valores.push(datos.prioridad);
       }
 
-      // Creamos los placeholders ($1, $2, $3...)
       const placeholders = campos.map((_, i) => `$${i + 1}`).join(", ");
 
       const queryActividad = `
@@ -163,7 +160,6 @@ export class ActividadesService {
 
   /**
    * Verifica si una actividad pertenece a un departamento específico.
-   * Usado para la seguridad de las acciones de Jefes de Departamento.
    */
   static async verificarPertenencia(
     actividadId: string,
@@ -177,7 +173,7 @@ export class ActividadesService {
         LIMIT 1
       `;
       const result = await sql(query, [actividadId, departamentoId]);
-      return result.rows.length > 0; // true si encuentra coincidencia, false si no
+      return result.rows.length > 0;
     } catch (error) {
       console.error("[v0] Error verificando pertenencia:", error);
       return false;
@@ -190,7 +186,7 @@ export class ActividadesService {
     usuarioId: string
   ): Promise<Actividad> {
     try {
-      // 1. Crear listas de parámetros separadas
+      // 1. Crear listas de parámetros separadas para evitar conflictos de índices
       const setClause: string[] = [];
       const updateParams: any[] = []; // Parámetros SÓLO para el UPDATE
       let paramIndex = 1; // Empezar en $1
@@ -221,14 +217,19 @@ export class ActividadesService {
         updateParams.push(datos.asignado_a);
         paramIndex++;
       }
-
       if (datos.tipo !== undefined) {
         setClause.push(`tipo = $${paramIndex}`);
         updateParams.push(datos.tipo);
         paramIndex++;
       }
+      // Actualizar fecha como string
+      if (datos.fecha_inicio !== undefined) {
+        setClause.push(`fecha_inicio = $${paramIndex}`);
+        updateParams.push(datos.fecha_inicio);
+        paramIndex++;
+      }
 
-      // 3. Manejar el caso de que no haya campos para actualizar
+      // 3. Manejar el caso de que no haya campos para actualizar en la tabla principal
       if (setClause.length === 0 && !datos.departamento_ids) {
         const actividad = await this.obtenerPorId(id);
         if (!actividad) throw new Error("Actividad no encontrada");
@@ -240,7 +241,7 @@ export class ActividadesService {
         // Añadimos el 'id' al final de la lista de parámetros
         updateParams.push(id);
 
-        // El 'id' será el último parámetro
+        // El 'id' será el último parámetro (ej: $4)
         const queryUpdate = `
           UPDATE actividades
           SET ${setClause.join(", ")}
@@ -251,7 +252,7 @@ export class ActividadesService {
         await sql(queryUpdate, updateParams);
       }
 
-      // 5. Actualizar departamentos
+      // 5. Actualizar departamentos (Borrar y reinsertar)
       if (datos.departamento_ids) {
         await sql(
           `DELETE FROM actividades_departamentos WHERE actividad_id = $1`,
@@ -272,6 +273,7 @@ export class ActividadesService {
         INSERT INTO registro_actividades (actividad_id, usuario_id, accion, cambios)
         VALUES ($1, $2, 'actualizada', $3)
       `;
+      // Para auditoría usamos params frescos
       await sql(queryAuditoria, [id, usuarioId, JSON.stringify(datos)]);
 
       // 7. Devolver la actividad actualizada
@@ -285,14 +287,11 @@ export class ActividadesService {
     }
   }
 
-  // --- ¡FUNCIÓN 'obtenerDatosDashboard' CORREGIDA! ---
   /**
    * Obtiene todos los datos agregados para el Panel de Control principal.
    */
   static async obtenerDatosDashboard(): Promise<DashboardData> {
     try {
-      // --- ¡CORRECCIÓN! Se cambió de 'sql`...`' a 'sql("...")' ---
-
       // 1. Consultas para los KPIs
       const kpiQueries = [
         // Total actividades en el mes actual
@@ -326,7 +325,6 @@ export class ActividadesService {
         WHERE date_trunc('month', fecha_inicio) = date_trunc('month', CURRENT_DATE)
         GROUP BY estado`
       );
-      // --- FIN DE LA CORRECCIÓN ---
 
       // Ejecutamos todas las consultas en paralelo
       const [kpiResults, proximasResult, chartResult] = await Promise.all([
@@ -346,7 +344,7 @@ export class ActividadesService {
         (r: any) => ({
           id: r.id,
           titulo: r.titulo,
-          fecha_inicio: r.fecha_inicio,
+          fecha_inicio: r.fecha_inicio, // Aquí viene como Date desde pg
           estado: r.estado,
         })
       );
@@ -365,7 +363,6 @@ export class ActividadesService {
       };
     } catch (error) {
       console.error("[v0] Error obteniendo datos del dashboard:", error);
-      // Devolvemos data vacía en caso de error
       return {
         kpis: { totalMes: 0, enProgreso: 0, pendientes: 0 },
         proximasActividades: [],
