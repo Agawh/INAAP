@@ -24,8 +24,11 @@ import {
   CircleDashed,
   Undo2,
   Loader2,
+  PauseCircle,
+  CalendarClock,
 } from "lucide-react";
-import type { Actividad, Departamento, EstadoActividad } from "@/types";
+// --- ¡CAMBIO! Importamos Rol ---
+import type { Actividad, Departamento, EstadoActividad, Rol } from "@/types";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -38,7 +41,7 @@ import { accionActualizarEstadoActividad } from "@/app/actions/actividades.actio
 import { useToast } from "@/hooks/use-toast";
 import { Separator } from "@/components/ui/separator";
 
-// (Funciones de fecha y estado sin cambios)
+// (Funciones auxiliares sin cambios)
 function estaEnElMes(fechaActividad: Date, mesMostrado: Date) {
   return (
     fechaActividad.getMonth() === mesMostrado.getMonth() &&
@@ -62,24 +65,33 @@ function traducirEstado(estado: EstadoActividad | string) {
       return "Completada";
     case "cancelada":
       return "Cancelada";
+    case "suspendido":
+      return "Suspendido";
     default:
       return estado;
   }
 }
 
+// --- ¡CAMBIO! Nueva prop 'rolUsuario' ---
 type CronogramaProps = {
   actividades: Actividad[];
   departamentos: Departamento[];
+  rolUsuario: Rol;
 };
 
 export function CronogramaActividades({
   actividades,
   departamentos,
+  rolUsuario, // <-- Recibimos el rol
 }: CronogramaProps) {
   const { toast } = useToast();
   const [isPending, startTransition] = useTransition();
+
   const [fecha, setFecha] = React.useState<Date | undefined>(new Date());
   const [mesMostrado, setMesMostrado] = React.useState<Date>(new Date());
+
+  // --- ¡CAMBIO! Variable para saber si es solo lectura ---
+  const esSoloLectura = rolUsuario === "miembro_departamento";
 
   const deptMap = React.useMemo(() => {
     return new Map(departamentos.map((d) => [d.id, d.nombre]));
@@ -93,13 +105,13 @@ export function CronogramaActividades({
     }));
   }, [actividades]);
 
+  // ... (Memos de filtrado sin cambios)
   const diasConActividad = React.useMemo(() => {
     return actividadesConFechas.map((act) => act.fecha_inicio);
   }, [actividadesConFechas]);
 
   const actividadesMostradas = React.useMemo(() => {
     let filtered: typeof actividadesConFechas;
-
     if (fecha) {
       filtered = actividadesConFechas.filter((act) =>
         esElMismoDia(act.fecha_inicio, fecha)
@@ -109,7 +121,6 @@ export function CronogramaActividades({
         estaEnElMes(act.fecha_inicio, mesMostrado)
       );
     }
-
     return filtered.sort(
       (a, b) => a.fecha_inicio.getTime() - b.fecha_inicio.getTime()
     );
@@ -117,7 +128,10 @@ export function CronogramaActividades({
 
   const actividadesPendientes = React.useMemo(() => {
     return actividadesMostradas.filter(
-      (act) => act.estado === "pendiente" || act.estado === "en_progreso"
+      (act) =>
+        act.estado === "pendiente" ||
+        act.estado === "en_progreso" ||
+        act.estado === "suspendido"
     );
   }, [actividadesMostradas]);
 
@@ -127,12 +141,9 @@ export function CronogramaActividades({
     );
   }, [actividadesMostradas]);
 
-  // (Manejadores de fecha y estado sin cambios)
   const handleSelectFecha = (dia: Date | undefined) => {
     setFecha(dia);
-    if (dia) {
-      setMesMostrado(dia);
-    }
+    if (dia) setMesMostrado(dia);
   };
   const handleMonthChange = (month: Date) => {
     setMesMostrado(month);
@@ -143,15 +154,15 @@ export function CronogramaActividades({
     setFecha(hoy);
     setMesMostrado(hoy);
   }, []);
+
   const descripcionTitulo = React.useMemo(() => {
-    if (fecha) {
-      return fecha.toLocaleDateString("es-ES", { dateStyle: "long" });
-    }
+    if (fecha) return fecha.toLocaleDateString("es-ES", { dateStyle: "long" });
     return mesMostrado.toLocaleDateString("es-ES", {
       month: "long",
       year: "numeric",
     });
   }, [fecha, mesMostrado]);
+
   const handleEstadoChange = (
     actividadId: string,
     titulo: string,
@@ -179,29 +190,28 @@ export function CronogramaActividades({
     });
   };
 
-  // (Componente interno renderActividadItem)
   const renderActividadItem = (act: (typeof actividadesConFechas)[number]) => {
     const primerDeptoId = act.departamentos[0];
     const nombrePrimerDepto = deptMap.get(primerDeptoId);
     const numDeptosExtra = act.departamentos.length - 1;
-
     const estadoClasses = {
       pendiente: "border-l-gray-400 dark:border-l-gray-600",
       en_progreso: "border-l-yellow-500 dark:border-l-yellow-600",
       completada: "border-l-green-500 dark:border-l-green-600",
       cancelada: "border-l-red-500 dark:border-l-red-600 opacity-70",
+      suspendido:
+        "border-l-orange-500 dark:border-l-orange-600 bg-orange-50/50 dark:bg-orange-950/10",
     }[act.estado];
 
     return (
       <div
         key={act.id}
         className={cn(
-          "flex items-start gap-3 rounded-lg border p-3",
+          "flex items-start gap-3 rounded-lg border p-3 transition-colors",
           "border-l-4",
           estadoClasses
         )}
       >
-        {/* (Contenido del item... sin cambios) */}
         <div className="flex-1">
           <p
             className={cn(
@@ -235,84 +245,109 @@ export function CronogramaActividades({
           </div>
         </div>
 
-        {/* Dropdown de Acciones */}
-        <DropdownMenu modal={false}>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="shrink-0">
-              <MoreVertical className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            {/* --- ¡CAMBIO! El botón ahora es un Link --- */}
-            <DropdownMenuItem asChild>
-              <Link href={`/dashboard/actividades/${act.id}`}>
-                <Edit className="mr-2 h-4 w-4" />
-                Editar Actividad
-              </Link>
-            </DropdownMenuItem>
+        {/* --- ¡CAMBIO! Ocultar Dropdown si es solo lectura --- */}
+        {!esSoloLectura && (
+          <DropdownMenu modal={false}>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="shrink-0">
+                <MoreVertical className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {act.estado === "suspendido" ? (
+                <DropdownMenuItem asChild className="text-primary font-medium">
+                  <Link href={`/dashboard/actividades/${act.id}`}>
+                    <CalendarClock className="mr-2 h-4 w-4" />
+                    Reprogramar Actividad
+                  </Link>
+                </DropdownMenuItem>
+              ) : (
+                <DropdownMenuItem asChild>
+                  <Link href={`/dashboard/actividades/${act.id}`}>
+                    <Edit className="mr-2 h-4 w-4" />
+                    Editar Actividad
+                  </Link>
+                </DropdownMenuItem>
+              )}
 
-            <BotonEliminarActividad
-              actividadId={act.id}
-              tituloActividad={act.titulo}
-            />
+              <BotonEliminarActividad
+                actividadId={act.id}
+                tituloActividad={act.titulo}
+              />
+              <DropdownMenuSeparator />
 
-            <DropdownMenuSeparator />
-
-            {/* (Opciones de cambio de estado... sin cambios) */}
-            {act.estado !== "en_progreso" && (
-              <DropdownMenuItem
-                disabled={isPending}
-                onSelect={() =>
-                  handleEstadoChange(act.id, act.titulo, "en_progreso")
-                }
-              >
-                {isPending ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : (
-                  <CircleDashed className="mr-2 h-4 w-4" />
+              {act.estado !== "en_progreso" && act.estado !== "suspendido" && (
+                <DropdownMenuItem
+                  disabled={isPending}
+                  onSelect={() =>
+                    handleEstadoChange(act.id, act.titulo, "en_progreso")
+                  }
+                >
+                  {isPending ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <CircleDashed className="mr-2 h-4 w-4" />
+                  )}{" "}
+                  Marcar "En Progreso"
+                </DropdownMenuItem>
+              )}
+              {act.estado !== "completada" && act.estado !== "suspendido" && (
+                <DropdownMenuItem
+                  disabled={isPending}
+                  onSelect={() =>
+                    handleEstadoChange(act.id, act.titulo, "completada")
+                  }
+                >
+                  {isPending ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <CheckCircle2 className="mr-2 h-4 w-4" />
+                  )}{" "}
+                  Marcar "Completada"
+                </DropdownMenuItem>
+              )}
+              {act.estado !== "suspendido" &&
+                act.estado !== "completada" &&
+                act.estado !== "cancelada" && (
+                  <DropdownMenuItem
+                    disabled={isPending}
+                    onSelect={() =>
+                      handleEstadoChange(act.id, act.titulo, "suspendido")
+                    }
+                    className="text-orange-600 focus:text-orange-700"
+                  >
+                    {isPending ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <PauseCircle className="mr-2 h-4 w-4" />
+                    )}{" "}
+                    Suspender Actividad
+                  </DropdownMenuItem>
                 )}
-                Marcar "En Progreso"
-              </DropdownMenuItem>
-            )}
-            {act.estado !== "completada" && (
-              <DropdownMenuItem
-                disabled={isPending}
-                onSelect={() =>
-                  handleEstadoChange(act.id, act.titulo, "completada")
-                }
-              >
-                {isPending ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : (
-                  <CheckCircle2 className="mr-2 h-4 w-4" />
-                )}
-                Marcar "Completada"
-              </DropdownMenuItem>
-            )}
-            {act.estado !== "pendiente" && (
-              <DropdownMenuItem
-                disabled={isPending}
-                onSelect={() =>
-                  handleEstadoChange(act.id, act.titulo, "pendiente")
-                }
-              >
-                {isPending ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : (
-                  <Undo2 className="mr-2 h-4 w-4" />
-                )}
-                Revertir a "Pendiente"
-              </DropdownMenuItem>
-            )}
-          </DropdownMenuContent>
-        </DropdownMenu>
+              {act.estado !== "pendiente" && (
+                <DropdownMenuItem
+                  disabled={isPending}
+                  onSelect={() =>
+                    handleEstadoChange(act.id, act.titulo, "pendiente")
+                  }
+                >
+                  {isPending ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Undo2 className="mr-2 h-4 w-4" />
+                  )}{" "}
+                  Revertir a "Pendiente"
+                </DropdownMenuItem>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
       </div>
     );
   };
 
   return (
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-      {/* Columna Izquierda: Calendario (Centrado) */}
       <div className="lg:col-span-2">
         <Card>
           <CardContent className="p-0 flex justify-center">
@@ -332,10 +367,8 @@ export function CronogramaActividades({
           </CardContent>
         </Card>
       </div>
-      {/* Columna Derecha: Lista de Actividades */}
       <div className="lg:col-span-1">
         <Card className="h-full">
-          {/* (CardHeader sin cambios) */}
           <CardHeader className="flex flex-row items-center justify-between">
             <div>
               <CardTitle>
@@ -345,16 +378,19 @@ export function CronogramaActividades({
                 {descripcionTitulo}
               </CardDescription>
             </div>
-            <Button size="icon" variant="outline" asChild>
-              <Link href="/dashboard/actividades/crear">
-                <CalendarPlus className="h-4 w-4" />
-              </Link>
-            </Button>
+            {/* --- ¡CAMBIO! Ocultar botón de crear si es solo lectura --- */}
+            {!esSoloLectura && (
+              <Button size="icon" variant="outline" asChild>
+                <Link href="/dashboard/actividades/crear">
+                  <CalendarPlus className="h-4 w-4" />
+                </Link>
+              </Button>
+            )}
           </CardHeader>
           <CardContent>
             <ScrollArea className="h-[450px]">
-              {/* (Lógica de renderizado con agrupación... sin cambios) */}
               <div className="flex flex-col gap-4">
+                {/* (Listas de actividades sin cambios...) */}
                 {actividadesPendientes.length === 0 &&
                 actividadesFinalizadas.length === 0 ? (
                   <p className="py-8 text-center text-sm text-muted-foreground">
@@ -366,7 +402,7 @@ export function CronogramaActividades({
                       <div className="flex flex-col gap-4">
                         <div className="flex items-center gap-2">
                           <span className="text-xs font-semibold uppercase text-muted-foreground">
-                            Pendientes y En Progreso
+                            Pendientes y Suspendidas
                           </span>
                           <Separator className="flex-1" />
                         </div>

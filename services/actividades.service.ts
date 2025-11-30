@@ -363,6 +363,7 @@ export class ActividadesService {
       };
     } catch (error) {
       console.error("[v0] Error obteniendo datos del dashboard:", error);
+      // Devolvemos data vacía en caso de error
       return {
         kpis: { totalMes: 0, enProgreso: 0, pendientes: 0 },
         proximasActividades: [],

@@ -2,10 +2,9 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { ActividadesService } from "@/services/actividades.service";
-
-// --- ¡CAMBIO! ---
-// Importamos el panel de control directamente, sin 'dynamic'.
 import { PanelDeControl } from "@/components/dashboard/panel-control";
+// Importamos el tipo Rol para asegurarnos (opcional en JS, buena práctica en TS)
+import type { Rol } from "@/types";
 
 export default async function DashboardPage() {
   const session = await auth();
@@ -15,12 +14,14 @@ export default async function DashboardPage() {
     redirect("/");
   }
 
-  // 2. Obtener los datos para el Dashboard
+  // 2. Obtener los datos
   const dashboardData = await ActividadesService.obtenerDatosDashboard();
+
+  // 3. Obtener el rol
+  const rolUsuario = session.user.rol as Rol;
 
   return (
     <div className="flex flex-col gap-6">
-      {/* Saludo al usuario */}
       <div>
         <h1 className="text-3xl font-bold tracking-tight">
           ¡Bienvenido, {session.user.name.split(" ")[0]}!
@@ -30,8 +31,8 @@ export default async function DashboardPage() {
         </p>
       </div>
 
-      {/* 3. Renderizar el panel de control (componente cliente) */}
-      <PanelDeControl data={dashboardData} />
+      {/* 4. Pasamos el rol al componente cliente */}
+      <PanelDeControl data={dashboardData} rolUsuario={rolUsuario} />
     </div>
   );
 }

@@ -1,14 +1,18 @@
 // /app/dashboard/actividades/page.tsx
 import { ActividadesService } from "@/services/actividades.service";
 import { CronogramaActividades } from "@/components/actividades/cronograma-actividades";
-// --- ¡CAMBIO! Importamos el servicio de departamentos ---
 import { DepartamentosService } from "@/services/departamentos.service";
+// --- ¡CAMBIO! Importar auth y tipos ---
+import { auth } from "@/auth";
+import type { Rol } from "@/types";
 
-// Hacemos que la página se revalide dinámicamente
 export const revalidate = 0;
 
 export default async function PaginaCronograma() {
-  // --- ¡CAMBIO! Obtenemos actividades Y departamentos ---
+  // --- ¡CAMBIO! Obtener sesión para el rol ---
+  const session = await auth();
+  const rolUsuario = session?.user?.rol as Rol;
+
   const [actividades, departamentos] = await Promise.all([
     ActividadesService.obtenerTodas(),
     DepartamentosService.obtenerTodos(),
@@ -25,10 +29,11 @@ export default async function PaginaCronograma() {
         </p>
       </div>
 
-      {/* --- ¡CAMBIO! Pasamos los departamentos como prop --- */}
       <CronogramaActividades
         actividades={actividades}
         departamentos={departamentos}
+        // --- ¡CAMBIO! Pasamos el rol ---
+        rolUsuario={rolUsuario}
       />
     </div>
   );

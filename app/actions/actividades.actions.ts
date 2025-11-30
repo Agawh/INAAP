@@ -21,15 +21,15 @@ export type EstadoFormularioActividad = {
   errores?: Record<string, string[] | undefined>;
 };
 
-// --- ¡CAMBIO! (schemaEditarActividad) ---
+// Usaremos el mismo esquema para crear y editar
 const schemaEditarActividad = z.object({
   titulo: z.string().min(3, "El título debe tener al menos 3 caracteres"),
 
   descripcion: z.string().optional(),
 
-  // --- ¡BUG 1 CORREGIDO! ---
-  // Ya no usamos .pipe(z.coerce.date())
-  // Solo validamos que sea un string con el formato YYYY-MM-DD
+  // --- ¡CORRECCIÓN! ---
+  // Eliminamos .pipe(z.coerce.date()) para que se mantenga como string
+  // y coincida con el tipo de los DTOs y el servicio.
   fecha_inicio: z
     .string()
     .min(10, "La fecha de inicio es requerida.")
@@ -48,7 +48,6 @@ const schemaEditarActividad = z.object({
     .min(1, "Debe seleccionar al menos un departamento."),
 });
 
-// (accionCrearActividad - ahora usa el nuevo schema, no hay más cambios)
 export async function accionCrearActividad(
   estadoPrevio: EstadoFormularioActividad,
   formData: FormData
@@ -88,7 +87,6 @@ export async function accionCrearActividad(
     };
   }
 
-  // Ahora usa el schema corregido (fecha como string)
   const datosValidados = schemaEditarActividad.safeParse({
     titulo: formData.get("titulo"),
     descripcion: formData.get("descripcion"),
@@ -105,14 +103,15 @@ export async function accionCrearActividad(
   const {
     titulo,
     descripcion,
-    fecha_inicio, // <-- Ahora es un string
+    fecha_inicio, // Ahora es string, compatible con DTO
     tipo,
     departamento_ids,
   } = datosValidados.data;
+
   const dto: CrearActividadDTO = {
     titulo,
     descripcion: descripcion || undefined,
-    fecha_inicio, // <-- Se pasa como string
+    fecha_inicio,
     tipo: tipo as TipoActividad,
     departamento_ids,
   };
@@ -129,7 +128,6 @@ export async function accionCrearActividad(
   redirect("/dashboard/actividades");
 }
 
-// (accionEliminarActividad y accionActualizarEstadoActividad sin cambios)
 export async function accionEliminarActividad(
   actividadId: string
 ): Promise<{ success: boolean; message: string }> {
@@ -180,7 +178,13 @@ export async function accionEliminarActividad(
 
 const schemaActualizarEstado = z.object({
   actividadId: z.string().uuid(),
-  nuevoEstado: z.enum(["pendiente", "en_progreso", "completada", "cancelada"]),
+  nuevoEstado: z.enum([
+    "pendiente",
+    "en_progreso",
+    "completada",
+    "cancelada",
+    "suspendido",
+  ]),
 });
 
 export async function accionActualizarEstadoActividad(
@@ -246,7 +250,6 @@ export async function accionActualizarEstadoActividad(
   }
 }
 
-// --- ¡CAMBIO! (accionEditarActividad) ---
 export async function accionEditarActividad(
   actividadId: string,
   estadoPrevio: EstadoFormularioActividad,
@@ -295,7 +298,6 @@ export async function accionEditarActividad(
     return { mensaje: "Acceso denegado. Permisos insuficientes.", errores: {} };
   }
 
-  // Se usa el schema corregido (fecha como string)
   const datosValidados = schemaEditarActividad.safeParse({
     titulo: formData.get("titulo"),
     descripcion: formData.get("descripcion"),
@@ -312,28 +314,46 @@ export async function accionEditarActividad(
   const {
     titulo,
     descripcion,
-    fecha_inicio, // <-- Sigue siendo un string
+    fecha_inicio, // string
     tipo,
     departamento_ids,
   } = datosValidados.data;
 
-  // --- ¡BUG 2 CORREGIDO! ---
   const dto: ActualizarActividadDTO = {
     titulo,
     descripcion: descripcion || undefined,
     tipo: tipo as TipoActividad,
     departamento_ids,
-    fecha_inicio: fecha_inicio, // <-- AÑADIDO (¡El bug estaba aquí!)
+    fecha_inicio: fecha_inicio,
   };
 
+  // --- LÓGICA DE REACTIVACIÓN ---
   try {
+    // 1. Buscamos la actividad original
+    const actividadActual = await ActividadesService.obtenerPorId(actividadId);
+
+    if (actividadActual && actividadActual.estado === "suspendido") {
+      // 2. Formateamos la fecha actual de la BD a string YYYY-MM-DD
+      const fechaDb = new Date(actividadActual.fecha_inicio)
+        .toISOString()
+        .split("T")[0];
+
+      // 3. Comparamos strings (ahora es seguro porque ambos son strings YYYY-MM-DD)
+      if (fechaDb !== fecha_inicio) {
+        dto.estado = "pendiente"; // Reactivamos la actividad
+      }
+    }
+
     await ActividadesService.actualizar(actividadId, dto, usuarioId);
   } catch (error: any) {
     console.error("[ACCION_EDITAR_ACTIVIDAD]", error);
     return {
       mensaje: "Error de base de datos. No se pudo actualizar la actividad.",
+      errores: {},
     };
   }
+  // --------------------------------------
+
   revalidatePath("/dashboard/actividades");
   redirect("/dashboard/actividades");
 }

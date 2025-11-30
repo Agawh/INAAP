@@ -7,7 +7,8 @@ export type EstadoActividad =
   | "pendiente"
   | "en_progreso"
   | "completada"
-  | "cancelada";
+  | "cancelada"
+  | "suspendido";
 export type Prioridad = "baja" | "media" | "alta";
 export type CanalNotificacion = "telegram" | "email" | "calendario";
 export type EstadoNotificacion = "pendiente" | "enviada" | "fallida";
