@@ -1,44 +1,44 @@
-// /app/actions/autenticacion.actions.ts
 "use server";
 
-// ---- ¡LA CORRECCIÓN ESTÁ AQUÍ! ----
-// Nos aseguramos de importar tanto 'signIn' como 'signOut'
 import { signIn, signOut } from "@/auth";
-import { AuthError } from "next-auth";
+import { AuthError } from "next-auth"; // Importamos AuthError
 
-/**
- * Autentica a un usuario
- */
-export async function iniciarSesion(data: FormData) {
+export async function iniciarSesion(
+  prevState: string | undefined,
+  formData: FormData
+) {
   try {
-    const email = data.get("email") as string;
-    const password = data.get("password") as string;
-
     await signIn("credentials", {
-      email,
-      password,
-      redirectTo: "/dashboard",
+      email: formData.get("email"),
+      password: formData.get("password"),
+      redirect: true, // Dejamos que NextAuth maneje la redirección
+      redirectTo: "/dashboard", // Forzamos la ruta de destino
     });
-
-    return { success: true };
   } catch (error) {
+    // 1. Si el error es una redirección exitosa, lo relanzamos
+    // para que Next.js pueda redirigir al usuario.
+    if ((error as Error).message.includes("NEXT_REDIRECT")) {
+      throw error;
+    }
+
+    // 2. Si es un error de autenticación conocido (contraseña mal, usuario no existe)
     if (error instanceof AuthError) {
       switch (error.type) {
         case "CredentialsSignin":
-          return { success: false, error: "Credenciales inválidas." };
+          return "Credenciales inválidas. Verifique su correo y contraseña.";
+        case "CallbackRouteError":
+          return "Error de conexión con la base de datos o credenciales inválidas.";
         default:
-          return { success: false, error: "Ocurrió un error inesperado." };
+          return "Ocurrió un error inesperado. Intente nuevamente.";
       }
     }
 
-    throw error;
+    // 3. Cualquier otro error no manejado
+    console.error("Error de login desconocido:", error);
+    return "Error del sistema. Contacte a soporte.";
   }
 }
 
-/**
- * Cierra la sesión del usuario actual
- */
 export async function cerrarSesion() {
-  // Esta línea ahora funcionará porque 'signOut' está importado
   await signOut({ redirectTo: "/" });
 }

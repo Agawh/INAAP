@@ -1,13 +1,11 @@
 // /components/perfil/formulario-perfil.tsx
 "use client";
 
-// --- ¡CAMBIO! Quitado 'useEffect'
 import * as React from "react";
-import { useActionState, useRef, useEffect } from "react";
+import { useActionState, useRef, useEffect, useState } from "react";
 import { useFormStatus } from "react-dom";
 import type { Usuario, ConfiguracionNotificaciones } from "@/types";
 
-// --- ¡CAMBIO! 'accionActualizarNotificaciones' ya no se importa
 import {
   accionActualizarPassword,
   type EstadoFormularioPerfil,
@@ -25,15 +23,11 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-// 'Separator' ya no es necesario
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Spinner } from "@/components/ui/spinner";
 import { useToast } from "@/hooks/use-toast";
-import { AlertTriangle } from "lucide-react"; // 'CheckCircle' ya no es necesario
+import { AlertTriangle, Calendar, Copy } from "lucide-react"; // <-- Iconos nuevos
 
-// --- ¡CAMBIO! 'BotonGuardarPreferencias' eliminado ---
-
-// --- Botón de Guardar para Contraseña (sin cambios) ---
 function BotonGuardarPassword() {
   const { pending } = useFormStatus();
   return (
@@ -44,7 +38,6 @@ function BotonGuardarPassword() {
   );
 }
 
-// --- Props del Formulario (sin cambios) ---
 type FormularioPerfilProps = {
   usuario: Usuario;
   configuracion: ConfiguracionNotificaciones;
@@ -56,9 +49,6 @@ export function FormularioPerfil({
 }: FormularioPerfilProps) {
   const { toast } = useToast();
 
-  // --- ¡CAMBIO! Estado para Notificaciones eliminado ---
-
-  // --- Estado para el formulario de Contraseña (sin cambios) ---
   const estadoPasswordInicial: EstadoFormularioPerfil = {
     mensaje: "",
     tipo: "exito",
@@ -70,9 +60,25 @@ export function FormularioPerfil({
 
   const formPassRef = useRef<HTMLFormElement>(null);
 
-  // --- ¡CAMBIO! useEffect para Notificaciones eliminado ---
+  // --- Lógica del Enlace de Calendario ---
+  const [calendarUrl, setCalendarUrl] = useState("");
 
-  // Efecto para mostrar Toasts de contraseña (sin cambios)
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      // Generamos la URL usando el dominio actual del navegador
+      setCalendarUrl(`${window.location.origin}/api/calendario/${usuario.id}`);
+    }
+  }, [usuario.id]);
+
+  const copiarAlPortapapeles = () => {
+    navigator.clipboard.writeText(calendarUrl);
+    toast({
+      title: "Enlace copiado",
+      description: "Pégalo en Google Calendar > Agregar desde URL",
+    });
+  };
+  // -------------------------------------
+
   useEffect(() => {
     if (estadoPass.mensaje) {
       toast({
@@ -89,12 +95,12 @@ export function FormularioPerfil({
 
   return (
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-      {/* Columna Izquierda: Información Personal */}
-      <div className="lg:col-span-1">
+      {/* Columna Izquierda */}
+      <div className="lg:col-span-1 space-y-6">
+        {/* Tarjeta Info Personal */}
         <Card>
           <CardHeader>
             <CardTitle>Información Personal</CardTitle>
-            {/* --- ¡CAMBIO! '(Solo lectura)' eliminado --- */}
             <CardDescription>Tus datos de usuario.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -112,11 +118,45 @@ export function FormularioPerfil({
             </div>
           </CardContent>
         </Card>
+
+        {/* --- ¡NUEVA TARJETA DE CALENDARIO! --- */}
+        <Card className="border-blue-200 bg-blue-50 dark:bg-blue-950/20 dark:border-blue-900">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2 text-blue-800 dark:text-blue-300">
+              <Calendar className="h-4 w-4" /> Sincronizar Calendario
+            </CardTitle>
+            <CardDescription className="text-xs">
+              Copia este enlace y agrégalo a tu Google Calendar u Outlook para
+              ver las actividades automáticamente.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex gap-2">
+              <Input
+                readOnly
+                value={calendarUrl}
+                className="bg-white dark:bg-black text-xs font-mono h-8"
+              />
+              <Button
+                size="icon"
+                variant="outline"
+                className="h-8 w-8 shrink-0"
+                onClick={copiarAlPortapapeles}
+              >
+                <Copy className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+            <p className="text-[10px] text-muted-foreground mt-2">
+              * Las actualizaciones pueden tardar unas horas en aparecer en
+              Google.
+            </p>
+          </CardContent>
+        </Card>
       </div>
 
-      {/* Columna Derecha: Formularios de Configuración */}
+      {/* Columna Derecha */}
       <div className="lg:col-span-2 space-y-6">
-        {/* --- ¡CAMBIO! Tarjeta de Notificaciones (ya no es un <form>) --- */}
+        {/* Tarjeta Notificaciones (Solo lectura) */}
         <Card>
           <CardHeader>
             <CardTitle>Preferencias de Notificación</CardTitle>
@@ -127,49 +167,31 @@ export function FormularioPerfil({
           <CardContent className="space-y-4">
             <div className="flex items-center justify-between rounded-lg border p-4">
               <div className="space-y-0.5">
-                <Label htmlFor="email_habilitado" className="text-base">
-                  Notificaciones por Email
-                </Label>
+                <Label className="text-base">Notificaciones por Email</Label>
               </div>
-              <Switch
-                id="email_habilitado"
-                name="email_habilitado"
-                defaultChecked={true} // <-- CAMBIO
-                disabled // <-- CAMBIO
-              />
+              <Switch checked={true} disabled />
             </div>
             <div className="flex items-center justify-between rounded-lg border p-4">
               <div className="space-y-0.5">
-                <Label htmlFor="telegram_habilitado" className="text-base">
-                  Notificaciones por Telegram
-                </Label>
+                <Label className="text-base">Notificaciones por Telegram</Label>
               </div>
-              <Switch
-                id="telegram_habilitado"
-                name="telegram_habilitado"
-                defaultChecked={true} // <-- CAMBIO
-                disabled // <-- CAMBIO
-              />
+              <Switch checked={true} disabled />
             </div>
-            {/* --- ¡NUEVO! Switch de Google Calendar --- */}
             <div className="flex items-center justify-between rounded-lg border p-4">
               <div className="space-y-0.5">
-                <Label htmlFor="calendario_habilitado" className="text-base">
+                <Label className="text-base">
                   Sincronización con Google Calendar
                 </Label>
+                <p className="text-sm text-muted-foreground">
+                  Usa el enlace de la izquierda para conectar.
+                </p>
               </div>
-              <Switch
-                id="calendario_habilitado"
-                name="calendario_habilitado"
-                defaultChecked={true} // <-- CAMBIO
-                disabled // <-- CAMBIO
-              />
+              <Switch checked={true} disabled />
             </div>
           </CardContent>
-          {/* --- ¡CAMBIO! CardFooter eliminado, ya no es un formulario --- */}
         </Card>
 
-        {/* Formulario de Contraseña (sin cambios) */}
+        {/* Formulario de Contraseña */}
         <form ref={formPassRef} action={dispatchPass}>
           <Card>
             <CardHeader>
@@ -179,7 +201,6 @@ export function FormularioPerfil({
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              {/* Alerta de Error Específica */}
               {estadoPass.mensaje &&
                 estadoPass.tipo === "error" &&
                 !estadoPass.errores && (
@@ -189,7 +210,6 @@ export function FormularioPerfil({
                     <AlertDescription>{estadoPass.mensaje}</AlertDescription>
                   </Alert>
                 )}
-
               <div className="grid gap-2">
                 <Label htmlFor="password_actual">Contraseña Actual</Label>
                 <Input

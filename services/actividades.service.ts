@@ -47,7 +47,7 @@ export class ActividadesService {
         datos.titulo,
         datos.descripcion || null,
         datos.tipo,
-        datos.fecha_inicio, // Se pasa como string
+        datos.fecha_inicio, // Se pasa como string YYYY-MM-DD
         usuarioId,
       ];
 
@@ -186,10 +186,10 @@ export class ActividadesService {
     usuarioId: string
   ): Promise<Actividad> {
     try {
-      // 1. Crear listas de parámetros separadas para evitar conflictos de índices
+      // 1. Crear listas de parámetros separadas
       const setClause: string[] = [];
-      const updateParams: any[] = []; // Parámetros SÓLO para el UPDATE
-      let paramIndex = 1; // Empezar en $1
+      const updateParams: any[] = [];
+      let paramIndex = 1;
 
       // 2. Construir la consulta de UPDATE
       if (datos.titulo !== undefined) {
@@ -236,12 +236,10 @@ export class ActividadesService {
         return actividad;
       }
 
-      // 4. Ejecutar la consulta de UPDATE (si hay campos)
+      // 4. Ejecutar la consulta de UPDATE
       if (setClause.length > 0) {
-        // Añadimos el 'id' al final de la lista de parámetros
-        updateParams.push(id);
+        updateParams.push(id); // El ID va al final
 
-        // El 'id' será el último parámetro (ej: $4)
         const queryUpdate = `
           UPDATE actividades
           SET ${setClause.join(", ")}
@@ -273,7 +271,6 @@ export class ActividadesService {
         INSERT INTO registro_actividades (actividad_id, usuario_id, accion, cambios)
         VALUES ($1, $2, 'actualizada', $3)
       `;
-      // Para auditoría usamos params frescos
       await sql(queryAuditoria, [id, usuarioId, JSON.stringify(datos)]);
 
       // 7. Devolver la actividad actualizada
@@ -294,21 +291,18 @@ export class ActividadesService {
     try {
       // 1. Consultas para los KPIs
       const kpiQueries = [
-        // Total actividades en el mes actual
         sql(
           "SELECT COUNT(*) FROM actividades WHERE date_trunc('month', fecha_inicio) = date_trunc('month', CURRENT_DATE)"
         ),
-        // Total en progreso (global)
         sql("SELECT COUNT(*) FROM actividades WHERE estado = $1", [
           "en_progreso",
         ]),
-        // Total pendientes (global)
         sql("SELECT COUNT(*) FROM actividades WHERE estado = $1", [
           "pendiente",
         ]),
       ];
 
-      // 2. Consulta para las próximas actividades (Top 5)
+      // 2. Consulta para las próximas actividades
       const proximasQuery = sql(
         `SELECT id, titulo, fecha_inicio, estado
         FROM actividades
@@ -318,7 +312,7 @@ export class ActividadesService {
         ["pendiente"]
       );
 
-      // 3. Consulta para el gráfico (actividades del mes actual por estado)
+      // 3. Consulta para el gráfico
       const chartQuery = sql(
         `SELECT estado, COUNT(*) as total
         FROM actividades
@@ -326,14 +320,12 @@ export class ActividadesService {
         GROUP BY estado`
       );
 
-      // Ejecutamos todas las consultas en paralelo
       const [kpiResults, proximasResult, chartResult] = await Promise.all([
         Promise.all(kpiQueries),
         proximasQuery,
         chartQuery,
       ]);
 
-      // 4. Procesamos los resultados
       const kpis: DashboardKPIs = {
         totalMes: parseInt(kpiResults[0].rows[0].count, 10) || 0,
         enProgreso: parseInt(kpiResults[1].rows[0].count, 10) || 0,
@@ -344,7 +336,7 @@ export class ActividadesService {
         (r: any) => ({
           id: r.id,
           titulo: r.titulo,
-          fecha_inicio: r.fecha_inicio, // Aquí viene como Date desde pg
+          fecha_inicio: r.fecha_inicio,
           estado: r.estado,
         })
       );
@@ -356,19 +348,38 @@ export class ActividadesService {
         })
       );
 
-      return {
-        kpis,
-        proximasActividades,
-        chartData,
-      };
+      return { kpis, proximasActividades, chartData };
     } catch (error) {
       console.error("[v0] Error obteniendo datos del dashboard:", error);
-      // Devolvemos data vacía en caso de error
       return {
         kpis: { totalMes: 0, enProgreso: 0, pendientes: 0 },
         proximasActividades: [],
         chartData: [],
       };
+    }
+  }
+
+  /**
+   * Obtiene todas las actividades (no canceladas) para generar el feed del calendario.
+   * Trae actividades desde hace 1 mes en adelante.
+   */
+  static async obtenerParaCalendario(): Promise<Actividad[]> {
+    try {
+      const query = `
+        SELECT *
+        FROM actividades 
+        WHERE estado != 'cancelada'
+        AND fecha_inicio >= (CURRENT_DATE - INTERVAL '1 month')
+        ORDER BY fecha_inicio ASC
+      `;
+      const result = await sql(query);
+      return result.rows as Actividad[];
+    } catch (error) {
+      console.error(
+        "[v0] Error obteniendo actividades para calendario:",
+        error
+      );
+      return [];
     }
   }
 }
