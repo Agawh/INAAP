@@ -6,7 +6,16 @@ import type {
   ActualizarActividadDTO,
 } from "@/types";
 
-// ... (Tipos DashboardKPIs, ActividadSimple, etc. se mantienen igual) ...
+// Tipos auxiliares para respuestas crudas de la BD
+interface CountResult {
+  total: string; // Postgres devuelve COUNT como string
+}
+
+interface ChartResult {
+  estado: string;
+  total: string;
+}
+
 export type DashboardKPIs = {
   totalMes: number;
   enProgreso: number;
@@ -37,7 +46,6 @@ export type ResultadoPaginado<T> = {
 };
 
 export class ActividadesService {
-  // --- MÉTODO CORREGIDO ---
   static async obtenerPaginadas(
     pagina: number = 1,
     limite: number = 10,
@@ -46,16 +54,12 @@ export class ActividadesService {
     try {
       const offset = (pagina - 1) * limite;
 
-      // 1. Definir parámetros base
-      // Ordenamos para que 'filtro' sea siempre el primero ($1) si existe
-      // Esto permite reutilizar la condición WHERE en ambas consultas
       const paramsData: any[] = [];
       const paramsCount: any[] = [];
 
       let condicionWhere = "";
 
       if (filtro) {
-        // Si hay filtro, es el $1
         condicionWhere = `
           WHERE (
             a.titulo ILIKE $1 OR 
@@ -68,16 +72,13 @@ export class ActividadesService {
         paramsData.push(`%${filtro}%`);
       }
 
-      // Añadimos limite y offset a los parámetros de datos
-      // Si hay filtro, serán $2 y $3. Si no, serán $1 y $2.
       paramsData.push(limite);
       paramsData.push(offset);
 
-      // Indices para LIMIT y OFFSET dinámicos
       const idxLimit = filtro ? "$2" : "$1";
       const idxOffset = filtro ? "$3" : "$2";
 
-      // 2. Consulta de TOTAL (Solo usa filtro si existe)
+      // Usamos el tipo genérico <CountResult>
       const queryTotal = `
         SELECT COUNT(DISTINCT a.id) as total
         FROM actividades a
@@ -86,11 +87,11 @@ export class ActividadesService {
         ${condicionWhere}
       `;
 
-      const resultTotal = await sql(queryTotal, paramsCount);
+      const resultTotal = await sql<CountResult>(queryTotal, paramsCount);
       const total = parseInt(resultTotal.rows[0].total, 10);
       const totalPaginas = Math.ceil(total / limite);
 
-      // 3. Consulta de DATOS (Usa filtro + limite + offset)
+      // Usamos el tipo genérico <Actividad>
       const queryData = `
         SELECT a.*, 
                array_agg(DISTINCT ad.departamento_id) as departamentos
@@ -103,10 +104,10 @@ export class ActividadesService {
         LIMIT ${idxLimit} OFFSET ${idxOffset}
       `;
 
-      const resultData = await sql(queryData, paramsData);
+      const resultData = await sql<Actividad>(queryData, paramsData);
 
       return {
-        datos: resultData.rows as Actividad[],
+        datos: resultData.rows,
         total,
         paginas: totalPaginas,
         paginaActual: pagina,
@@ -116,9 +117,6 @@ export class ActividadesService {
       throw error;
     }
   }
-
-  // ... (El resto de métodos crear, obtenerPorId, etc. se mantienen igual) ...
-  // [Asegúrate de mantener el resto de la clase intacta como estaba antes]
 
   static async crear(
     datos: CrearActividadDTO,
@@ -153,8 +151,8 @@ export class ActividadesService {
         RETURNING *
       `;
 
-      const resultActividad = await sql(queryActividad, valores);
-      const actividad = resultActividad.rows[0] as Actividad;
+      const resultActividad = await sql<Actividad>(queryActividad, valores);
+      const actividad = resultActividad.rows[0];
 
       if (datos.departamento_ids && datos.departamento_ids.length > 0) {
         for (const deptId of datos.departamento_ids) {
@@ -194,8 +192,8 @@ export class ActividadesService {
         GROUP BY a.id
         LIMIT 1
       `;
-      const result = await sql(query, [id]);
-      return result.rows.length > 0 ? (result.rows[0] as Actividad) : null;
+      const result = await sql<Actividad>(query, [id]);
+      return result.rows.length > 0 ? result.rows[0] : null;
     } catch (error) {
       console.error("[v0] Error obteniendo actividad:", error);
       throw error;
@@ -215,8 +213,8 @@ export class ActividadesService {
         GROUP BY a.id
         ORDER BY a.fecha_inicio DESC
       `;
-      const result = await sql(query, [departamentoId]);
-      return result.rows as Actividad[];
+      const result = await sql<Actividad>(query, [departamentoId]);
+      return result.rows;
     } catch (error) {
       console.error(
         "[v0] Error obteniendo actividades por departamento:",
@@ -236,8 +234,8 @@ export class ActividadesService {
         GROUP BY a.id
         ORDER BY a.fecha_inicio DESC
       `;
-      const result = await sql(query);
-      return result.rows as Actividad[];
+      const result = await sql<Actividad>(query);
+      return result.rows;
     } catch (error) {
       console.error("[v0] Error obteniendo todas las actividades:", error);
       throw error;
@@ -249,13 +247,17 @@ export class ActividadesService {
     departamentoId: string
   ): Promise<boolean> {
     try {
+      // Usamos una interfaz simple para saber si existe
       const query = `
-        SELECT 1 
+        SELECT 1 as existe
         FROM actividades_departamentos
         WHERE actividad_id = $1 AND departamento_id = $2
         LIMIT 1
       `;
-      const result = await sql(query, [actividadId, departamentoId]);
+      const result = await sql<{ existe: number }>(query, [
+        actividadId,
+        departamentoId,
+      ]);
       return result.rows.length > 0;
     } catch (error) {
       console.error("[v0] Error verificando pertenencia:", error);
@@ -359,19 +361,22 @@ export class ActividadesService {
 
   static async obtenerDatosDashboard(): Promise<DashboardData> {
     try {
+      // Tipamos específicamente las respuestas
       const kpiQueries = [
-        sql(
-          "SELECT COUNT(*) FROM actividades WHERE date_trunc('month', fecha_inicio) = date_trunc('month', CURRENT_DATE)"
+        sql<CountResult>(
+          "SELECT COUNT(*) as total FROM actividades WHERE date_trunc('month', fecha_inicio) = date_trunc('month', CURRENT_DATE)"
         ),
-        sql("SELECT COUNT(*) FROM actividades WHERE estado = $1", [
-          "en_progreso",
-        ]),
-        sql("SELECT COUNT(*) FROM actividades WHERE estado = $1", [
-          "pendiente",
-        ]),
+        sql<CountResult>(
+          "SELECT COUNT(*) as total FROM actividades WHERE estado = $1",
+          ["en_progreso"]
+        ),
+        sql<CountResult>(
+          "SELECT COUNT(*) as total FROM actividades WHERE estado = $1",
+          ["pendiente"]
+        ),
       ];
 
-      const proximasQuery = sql(
+      const proximasQuery = sql<Actividad>(
         `SELECT id, titulo, fecha_inicio, estado
         FROM actividades
         WHERE estado = $1 AND fecha_inicio >= CURRENT_DATE
@@ -380,7 +385,7 @@ export class ActividadesService {
         ["pendiente"]
       );
 
-      const chartQuery = sql(
+      const chartQuery = sql<ChartResult>(
         `SELECT estado, COUNT(*) as total
         FROM actividades
         WHERE date_trunc('month', fecha_inicio) = date_trunc('month', CURRENT_DATE)
@@ -394,13 +399,13 @@ export class ActividadesService {
       ]);
 
       const kpis: DashboardKPIs = {
-        totalMes: parseInt(kpiResults[0].rows[0].count, 10) || 0,
-        enProgreso: parseInt(kpiResults[1].rows[0].count, 10) || 0,
-        pendientes: parseInt(kpiResults[2].rows[0].count, 10) || 0,
+        totalMes: parseInt(kpiResults[0].rows[0].total, 10) || 0,
+        enProgreso: parseInt(kpiResults[1].rows[0].total, 10) || 0,
+        pendientes: parseInt(kpiResults[2].rows[0].total, 10) || 0,
       };
 
       const proximasActividades: ActividadSimple[] = proximasResult.rows.map(
-        (r: any) => ({
+        (r) => ({
           id: r.id,
           titulo: r.titulo,
           fecha_inicio: r.fecha_inicio,
@@ -408,12 +413,10 @@ export class ActividadesService {
         })
       );
 
-      const chartData: DashboardChartData[] = chartResult.rows.map(
-        (r: any) => ({
-          estado: r.estado,
-          total: parseInt(r.total, 10),
-        })
-      );
+      const chartData: DashboardChartData[] = chartResult.rows.map((r) => ({
+        estado: r.estado,
+        total: parseInt(r.total, 10),
+      }));
 
       return { kpis, proximasActividades, chartData };
     } catch (error) {
@@ -435,8 +438,8 @@ export class ActividadesService {
         AND fecha_inicio >= (CURRENT_DATE - INTERVAL '1 month')
         ORDER BY fecha_inicio ASC
       `;
-      const result = await sql(query);
-      return result.rows as Actividad[];
+      const result = await sql<Actividad>(query);
+      return result.rows;
     } catch (error) {
       console.error(
         "[v0] Error obteniendo actividades para calendario:",

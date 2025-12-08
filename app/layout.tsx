@@ -10,10 +10,14 @@ const _geist = Geist({ subsets: ["latin"] });
 const _geistMono = Geist_Mono({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "INATUR - Sistema de Actividades",
+  title: "INAAP",
   description:
     "Sistema de gestión de actividades operativas y efemérides de INATUR Táchira",
   generator: "v0.app",
+
+  icons: {
+    icon: "/Inaturlogo.png",
+  },
 };
 
 export default function RootLayout({
@@ -22,9 +26,6 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    // CAMBIO: Agregamos 'suppressHydrationWarning' para evitar errores
-    // causados por extensiones del navegador (LastPass, Grammarly, etc.)
-    // que modifican el DOM antes de que React termine de cargar.
     <html lang="es" suppressHydrationWarning>
       <head />
       <body className={`font-sans antialiased`}>

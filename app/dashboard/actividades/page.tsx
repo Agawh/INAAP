@@ -9,7 +9,7 @@ import { CronogramaActividades } from "@/components/actividades/cronograma-activ
 import { TablaActividades } from "@/components/actividades/tabla-actividades";
 import { Busqueda } from "@/components/busqueda";
 import { Paginacion } from "@/components/paginacion";
-import { TabsManager } from "@/components/actividades/tabs-manager"; // <-- Nuevo componente
+import { TabsManager } from "@/components/actividades/tabs-manager";
 
 import { Button } from "@/components/ui/button";
 import { CalendarPlus } from "lucide-react";
@@ -53,8 +53,9 @@ export default async function PaginaCronograma({ searchParams }: PageProps) {
       {/* Header General */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
+          {/* CAMBIO: Capitalización corregida */}
           <h1 className="text-3xl font-bold tracking-tight">
-            Gestión de Actividades
+            Gestión de actividades
           </h1>
           <p className="text-lg text-muted-foreground">
             Visualiza el cronograma o gestiona el listado completo.
@@ -64,15 +65,15 @@ export default async function PaginaCronograma({ searchParams }: PageProps) {
           <Button asChild>
             <Link href="/dashboard/actividades/crear">
               <CalendarPlus className="mr-2 h-4 w-4" />
-              Nueva Actividad
+              {/* CAMBIO: Capitalización corregida */}
+              Nueva actividad
             </Link>
           </Button>
         )}
       </div>
 
-      {/* Gestor de Pestañas (Controla la URL) */}
+      {/* Gestor de Pestañas */}
       <TabsManager defaultTab={currentTab}>
-        {/* Pestaña 1: Cronograma */}
         <TabsContent value="cronograma">
           <CronogramaActividades
             actividades={actividadesCalendario}
@@ -81,12 +82,12 @@ export default async function PaginaCronograma({ searchParams }: PageProps) {
           />
         </TabsContent>
 
-        {/* Pestaña 2: Listado (Diseño Mejorado en Card) */}
         <TabsContent value="lista">
           <Card>
             <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between space-y-0 pb-4">
               <div className="space-y-1">
-                <CardTitle>Listado General</CardTitle>
+                {/* CAMBIO: Capitalización corregida */}
+                <CardTitle>Listado general</CardTitle>
                 <CardDescription>
                   Administra, busca y filtra todas las actividades.
                 </CardDescription>
@@ -103,7 +104,6 @@ export default async function PaginaCronograma({ searchParams }: PageProps) {
                   rolUsuario={rolUsuario}
                 />
 
-                {/* Paginación */}
                 <div className="flex justify-end">
                   <Paginacion totalPaginas={datosTabla.paginas} />
                 </div>

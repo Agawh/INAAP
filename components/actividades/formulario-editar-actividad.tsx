@@ -5,16 +5,14 @@ import * as React from "react";
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, Save } from "lucide-react";
+import { AlertTriangle, Save, Eye } from "lucide-react"; // Añadí icono Eye
 
 import type { Departamento, TipoActividad, Actividad } from "@/types";
-// --- ¡CAMBIO! Importamos la nueva acción ---
 import {
   type EstadoFormularioActividad,
   accionEditarActividad,
 } from "@/app/actions/actividades.actions";
 
-// Componentes UI (sin cambios)
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -31,7 +29,6 @@ const tipoOptions: { value: TipoActividad; label: string }[] = [
   { value: "efemeride", label: "Efeméride" },
 ];
 
-// --- ¡CAMBIO! Botón "Actualizar" ---
 function BotonActualizar() {
   const { pending } = useFormStatus();
   return (
@@ -51,34 +48,47 @@ function BotonActualizar() {
   );
 }
 
-// --- ¡CAMBIO! Props del Formulario ---
+// --- Actualización de Props ---
 type FormularioEditarActividadProps = {
-  actividad: Actividad; // <-- Recibe la actividad a editar
+  actividad: Actividad;
   departamentos: Departamento[];
+  soloLectura?: boolean; // Nueva prop opcional
 };
 
 export function FormularioEditarActividad({
   actividad,
   departamentos,
+  soloLectura = false, // Valor por defecto false
 }: FormularioEditarActividadProps) {
   const router = useRouter();
   const estadoInicial: EstadoFormularioActividad = { mensaje: "", errores: {} };
 
-  // --- ¡CAMBIO! Usamos la acción de editar, vinculada al ID ---
   const accionEditarConId = accionEditarActividad.bind(null, actividad.id);
   const [estado, dispatch] = useActionState(accionEditarConId, estadoInicial);
 
-  // --- ¡CAMBIO! Formatear fecha para el input ---
   const fechaInicioFormato = new Date(actividad.fecha_inicio)
     .toISOString()
     .split("T")[0];
 
   return (
-    <form action={dispatch}>
+    <form action={soloLectura ? undefined : dispatch}>
+      {" "}
+      {/* Si es solo lectura, no hay action */}
       <Card>
         <CardContent className="grid grid-cols-1 gap-6 pt-6 md:grid-cols-2">
-          {/* Alerta de Error General */}
-          {estado?.mensaje && !estado.errores && (
+          {/* Mensaje Informativo de Solo Lectura */}
+          {soloLectura && (
+            <div className="md:col-span-2 flex items-center gap-2 rounded-md bg-muted/50 p-3 text-sm text-muted-foreground border border-blue-200 dark:border-blue-900">
+              <Eye className="h-4 w-4" />
+              <span>
+                Modo de solo lectura. No tienes permisos para editar esta
+                actividad.
+              </span>
+            </div>
+          )}
+
+          {/* Alerta de Error (Solo si no es solo lectura y hay error) */}
+          {!soloLectura && estado?.mensaje && !estado.errores && (
             <Alert variant="destructive" className="md:col-span-2">
               <AlertTriangle className="h-4 w-4" />
               <AlertTitle>Error</AlertTitle>
@@ -93,7 +103,9 @@ export function FormularioEditarActividad({
               id="titulo"
               name="titulo"
               aria-invalid={!!estado?.errores?.titulo}
-              defaultValue={actividad.titulo} // <-- VALOR POR DEFECTO
+              defaultValue={actividad.titulo}
+              disabled={soloLectura} // Deshabilitado
+              className={soloLectura ? "bg-muted/50 text-foreground" : ""}
             />
             {estado?.errores?.titulo && (
               <p className="text-sm text-destructive">
@@ -109,7 +121,8 @@ export function FormularioEditarActividad({
               name="tipo"
               className="flex gap-4"
               aria-invalid={!!estado?.errores?.tipo}
-              defaultValue={actividad.tipo} // <-- VALOR POR DEFECTO
+              defaultValue={actividad.tipo}
+              disabled={soloLectura} // Deshabilitado
             >
               {tipoOptions.map((opcion) => (
                 <div key={opcion.value} className="flex items-center space-x-2">
@@ -121,11 +134,6 @@ export function FormularioEditarActividad({
                 </div>
               ))}
             </RadioGroup>
-            {estado?.errores?.tipo && (
-              <p className="text-sm text-destructive">
-                {estado.errores.tipo[0]}
-              </p>
-            )}
           </div>
 
           {/* Fecha de Inicio */}
@@ -136,37 +144,39 @@ export function FormularioEditarActividad({
               name="fecha_inicio"
               type="date"
               aria-invalid={!!estado?.errores?.fecha_inicio}
-              defaultValue={fechaInicioFormato} // <-- VALOR POR DEFECTO
+              defaultValue={fechaInicioFormato}
+              disabled={soloLectura} // Deshabilitado
+              className={soloLectura ? "bg-muted/50 text-foreground" : ""}
             />
-            {estado?.errores?.fecha_inicio && (
-              <p className="text-sm text-destructive">
-                {estado.errores.fecha_inicio[0]}
-              </p>
-            )}
           </div>
 
-          {/* Descripción (Opcional) */}
+          {/* Descripción */}
           <div className="grid gap-2 md:col-span-2">
             <Label htmlFor="descripcion">Descripción (Opcional)</Label>
             <Textarea
               id="descripcion"
               name="descripcion"
               placeholder="Añade detalles sobre la actividad..."
-              aria-invalid={!!estado?.errores?.descripcion}
-              className="min-h-[100px]"
-              defaultValue={actividad.descripcion || ""} // <-- VALOR POR DEFECTO
+              className={
+                soloLectura
+                  ? "min-h-[100px] bg-muted/50 text-foreground"
+                  : "min-h-[100px]"
+              }
+              defaultValue={actividad.descripcion || ""}
+              disabled={soloLectura} // Deshabilitado
             />
-            {estado?.errores?.descripcion && (
-              <p className="text-sm text-destructive">
-                {estado.errores.descripcion[0]}
-              </p>
-            )}
           </div>
 
-          {/* Departamentos (Requerido) */}
+          {/* Departamentos */}
           <div className="grid gap-2 md:col-span-2">
             <Label>Departamentos Involucrados</Label>
-            <ScrollArea className="h-[150px] w-full rounded-md border p-4">
+            <ScrollArea
+              className={
+                soloLectura
+                  ? "h-[150px] w-full rounded-md border p-4 bg-muted/30"
+                  : "h-[150px] w-full rounded-md border p-4"
+              }
+            >
               <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                 {departamentos.map((depto) => (
                   <div key={depto.id} className="flex items-center space-x-2">
@@ -174,10 +184,10 @@ export function FormularioEditarActividad({
                       id={`depto-${depto.id}`}
                       name="departamento_ids"
                       value={depto.id}
-                      // --- ¡CAMBIO! Marcar los que ya están ---
                       defaultChecked={(actividad.departamentos || []).includes(
                         depto.id
                       )}
+                      disabled={soloLectura} // Deshabilitado
                     />
                     <Label
                       htmlFor={`depto-${depto.id}`}
@@ -189,20 +199,17 @@ export function FormularioEditarActividad({
                 ))}
               </div>
             </ScrollArea>
-            {estado?.errores?.departamento_ids && (
-              <p className="text-sm text-destructive">
-                {estado.errores.departamento_ids[0]}
-              </p>
-            )}
           </div>
         </CardContent>
 
-        {/* Footer con Botones */}
+        {/* Footer */}
         <CardFooter className="flex justify-end gap-2 border-t px-6 py-4">
           <Button type="button" variant="outline" onClick={() => router.back()}>
-            Cancelar
+            {soloLectura ? "Volver" : "Cancelar"}
           </Button>
-          <BotonActualizar /> {/* <-- ¡CAMBIO! */}
+
+          {/* Si NO es solo lectura, mostramos el botón de actualizar */}
+          {!soloLectura && <BotonActualizar />}
         </CardFooter>
       </Card>
     </form>

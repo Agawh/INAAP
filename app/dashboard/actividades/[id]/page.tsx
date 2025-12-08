@@ -6,22 +6,18 @@ import { ActividadesService } from "@/services/actividades.service";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertTriangle } from "lucide-react";
 import { FormularioEditarActividad } from "@/components/actividades/formulario-editar-actividad";
+import type { Rol } from "@/types"; // Importamos el tipo Rol
 
-// --- ¡CORRECCIÓN 1! ---
-// Tipamos 'params' como una Promise que resuelve al objeto
 type EditarActividadPageProps = {
   params: Promise<{
-    id: string; // El ID de la actividad desde la URL
+    id: string;
   }>;
 };
 
 export default async function EditarActividadPage({
-  params, // 'params' es una Promise
+  params,
 }: EditarActividadPageProps) {
   const session = await auth();
-
-  // --- ¡CORRECCIÓN 2! ---
-  // Hacemos 'await' de los params para obtener el 'id'
   const { id } = await params;
 
   // 1. Verificación de Seguridad
@@ -29,13 +25,13 @@ export default async function EditarActividadPage({
     redirect("/");
   }
 
-  // 2. Obtener los datos de la actividad específica y los departamentos
+  // 2. Obtener datos
   const [actividad, departamentos] = await Promise.all([
-    ActividadesService.obtenerPorId(id), // Ahora 'id' es un string
+    ActividadesService.obtenerPorId(id),
     DepartamentosService.obtenerTodos(),
   ]);
 
-  // 3. Si la actividad no existe
+  // 3. Validar existencia
   if (!actividad) {
     return (
       <Alert variant="destructive">
@@ -48,20 +44,29 @@ export default async function EditarActividadPage({
     );
   }
 
+  // --- NUEVA LÓGICA DE SOLO LECTURA ---
+  // Un miembro del departamento solo puede VER, no editar.
+  const rolUsuario = session.user.rol as Rol;
+  const esSoloLectura = rolUsuario === "miembro_departamento";
+
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Editar Actividad</h1>
+        <h1 className="text-3xl font-bold tracking-tight">
+          {esSoloLectura ? "Detalles de la Actividad" : "Editar Actividad"}
+        </h1>
         <p className="text-lg text-muted-foreground">
-          Modificar los datos de:{" "}
-          <span className="font-semibold">{actividad.titulo}</span>.
+          {esSoloLectura
+            ? "Visualización de los detalles de la actividad."
+            : `Modificar los datos de: ${actividad.titulo}.`}
         </p>
       </div>
 
-      {/* 4. Renderizar el formulario de edición */}
+      {/* 4. Pasar la propiedad 'soloLectura' al formulario */}
       <FormularioEditarActividad
         actividad={actividad}
         departamentos={departamentos}
+        soloLectura={esSoloLectura}
       />
     </div>
   );

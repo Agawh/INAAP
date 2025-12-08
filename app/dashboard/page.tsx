@@ -1,4 +1,5 @@
-// /app/dashboard/page.tsx
+// /app/dashdsadasdaboard/page.tsxd
+
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { ActividadesService } from "@/services/actividades.service";

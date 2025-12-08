@@ -3,8 +3,12 @@ import { sql } from "@/lib/db";
 import type { Usuario, ConfiguracionNotificaciones } from "@/types";
 import { hashPassword, verifyPassword } from "@/lib/auth";
 
+// Interfaz para la verificación de password (ya que solo trae hash)
+interface PasswordCheckResult {
+  password_hash: string;
+}
+
 export class UsuariosService {
-  // OBTENER TODOS (CON FILTRO)
   static async obtenerTodos(filtro?: string): Promise<Usuario[]> {
     try {
       let query = `
@@ -26,15 +30,14 @@ export class UsuariosService {
         params.push(`%${filtro}%`);
       }
       query += ` ORDER BY u.nombre_completo ASC`;
-      const result = await sql(query, params);
-      return result.rows as Usuario[];
+      const result = await sql<Usuario>(query, params);
+      return result.rows;
     } catch (error) {
       console.error("[v0] Error obteniendo usuarios:", error);
       throw error;
     }
   }
 
-  // OBTENER UNO POR ID
   static async obtenerUsuarioPorId(id: string): Promise<Usuario | null> {
     try {
       const query = `
@@ -43,15 +46,14 @@ export class UsuariosService {
         WHERE id = $1 AND activo = true
         LIMIT 1
       `;
-      const result = await sql(query, [id]);
-      return result.rows.length > 0 ? (result.rows[0] as Usuario) : null;
+      const result = await sql<Usuario>(query, [id]);
+      return result.rows.length > 0 ? result.rows[0] : null;
     } catch (error) {
       console.error("[v0] Error obteniendo usuario por ID:", error);
       throw error;
     }
   }
 
-  // OBTENER UNO POR EMAIL
   static async obtenerUsuarioPorEmail(email: string): Promise<Usuario | null> {
     try {
       const query = `
@@ -60,36 +62,34 @@ export class UsuariosService {
         WHERE email = $1 AND activo = true
         LIMIT 1
       `;
-      const result = await sql(query, [email]);
-      return result.rows.length > 0 ? (result.rows[0] as Usuario) : null;
+      const result = await sql<Usuario>(query, [email]);
+      return result.rows.length > 0 ? result.rows[0] : null;
     } catch (error) {
       console.error("[v0] Error obteniendo usuario por email:", error);
       throw error;
     }
   }
 
-  // VERIFICAR PASSWORD (PARA MI PERFIL)
   static async verificarPassword(
     userId: string,
     passwordActual: string
   ): Promise<boolean> {
     try {
       const query = `SELECT password_hash FROM usuarios WHERE id = $1 LIMIT 1`;
-      const result = await sql(query, [userId]);
+      const result = await sql<PasswordCheckResult>(query, [userId]);
 
       if (result.rows.length === 0) {
-        return false; // Usuario no encontrado
+        return false;
       }
 
       const hash = result.rows[0].password_hash;
       return verifyPassword(passwordActual, hash);
     } catch (error) {
       console.error("[v0] Error verificando password:", error);
-      return false; // Ante cualquier error, denegar
+      return false;
     }
   }
 
-  // CREAR UN NUEVO USUARIO
   static async crearUsuario(
     email: string,
     password: string,
@@ -107,7 +107,7 @@ export class UsuariosService {
         VALUES ($1, $2, $3, $4, $5, $6, $7, true)
         RETURNING *
       `;
-      const result = await sql(queryInsertUser, [
+      const result = await sql<Usuario>(queryInsertUser, [
         email,
         passwordHash,
         nombre_completo,
@@ -117,7 +117,7 @@ export class UsuariosService {
         telefono || null,
       ]);
 
-      const nuevoUsuario = result.rows[0] as Usuario;
+      const nuevoUsuario = result.rows[0];
 
       const queryInsertConfig = `
         INSERT INTO configuracion_notificaciones (usuario_id, telegram_habilitado, email_habilitado, calendario_habilitado, dias_anticipacion)
@@ -133,7 +133,6 @@ export class UsuariosService {
     }
   }
 
-  // ACTUALIZAR UN USUARIO
   static async actualizarUsuario(
     id: string,
     datos: Partial<Usuario>,
@@ -173,9 +172,6 @@ export class UsuariosService {
         campos.push(`telefono = $${paramIndex++}`);
         params.push(datos.telefono);
       }
-
-      // --- ¡NUEVO CAMPO! ---
-      // Si viene el telegram_chat_id, lo actualizamos (o lo ponemos NULL si viene vacío)
       if (datos.telegram_chat_id !== undefined) {
         campos.push(`telegram_chat_id = $${paramIndex++}`);
         params.push(datos.telegram_chat_id || null);
@@ -200,15 +196,14 @@ export class UsuariosService {
         RETURNING *
       `;
 
-      const result = await sql(query, params);
-      return result.rows[0] as Usuario;
+      const result = await sql<Usuario>(query, params);
+      return result.rows[0];
     } catch (error) {
       console.error("[v0] Error actualizando usuario:", error);
       throw error;
     }
   }
 
-  // OBTENER USUARIOS POR DEPARTAMENTO
   static async obtenerUsuariosPorDepartamentoId(
     departamentoId: string
   ): Promise<Usuario[]> {
@@ -219,15 +214,14 @@ export class UsuariosService {
         WHERE departamento_id = $1 AND activo = true
         ORDER BY nombre_completo ASC
       `;
-      const result = await sql(query, [departamentoId]);
-      return result.rows as Usuario[];
+      const result = await sql<Usuario>(query, [departamentoId]);
+      return result.rows;
     } catch (error) {
       console.error("[v0] Error obteniendo usuarios por departamento:", error);
       throw error;
     }
   }
 
-  // ACTUALIZAR CONFIGURACIÓN DE NOTIFICACIONES
   static async actualizarConfiguracionNotificaciones(
     usuarioId: string,
     config: Partial<ConfiguracionNotificaciones>
@@ -250,8 +244,8 @@ export class UsuariosService {
         config.dias_anticipacion,
         usuarioId,
       ];
-      const result = await sql(query, params);
-      return result.rows[0] as ConfiguracionNotificaciones;
+      const result = await sql<ConfiguracionNotificaciones>(query, params);
+      return result.rows[0];
     } catch (error) {
       console.error(
         "[v0] Error actualizando configuración de notificaciones:",
@@ -261,7 +255,6 @@ export class UsuariosService {
     }
   }
 
-  // OBTENER CONFIGURACIÓN DE NOTIFICACIONES
   static async obtenerConfiguracionNotificaciones(
     usuarioId: string
   ): Promise<ConfiguracionNotificaciones | null> {
@@ -272,10 +265,8 @@ export class UsuariosService {
         WHERE usuario_id = $1
         LIMIT 1
       `;
-      const result = await sql(query, [usuarioId]);
-      return result.rows.length > 0
-        ? (result.rows[0] as ConfiguracionNotificaciones)
-        : null;
+      const result = await sql<ConfiguracionNotificaciones>(query, [usuarioId]);
+      return result.rows.length > 0 ? result.rows[0] : null;
     } catch (error) {
       console.error(
         "[v0] Error obteniendo configuración de notificaciones:",

@@ -28,7 +28,6 @@ type TablaActividadesProps = {
   rolUsuario: Rol;
 };
 
-// Mapa de traducción de estados
 const estadoMap: Record<
   string,
   {
@@ -37,10 +36,10 @@ const estadoMap: Record<
   }
 > = {
   pendiente: { label: "Pendiente", variant: "outline" },
-  en_progreso: { label: "En Progreso", variant: "secondary" },
+  en_progreso: { label: "En progreso", variant: "secondary" }, // Capitalización corregida
   completada: { label: "Completada", variant: "default" },
   cancelada: { label: "Cancelada", variant: "destructive" },
-  suspendido: { label: "Suspendido", variant: "destructive" }, // Usamos destructive para alertar
+  suspendido: { label: "Suspendido", variant: "destructive" },
 };
 
 export function TablaActividades({
@@ -52,17 +51,21 @@ export function TablaActividades({
   const esSoloLectura = rolUsuario === "miembro_departamento";
 
   return (
-    <div className="rounded-md border">
-      <Table>
+    <div className="rounded-md border overflow-hidden">
+      {/* CAMBIO TÉCNICO: 'table-fixed' fuerza a la tabla a respetar los anchos de columna definidos.
+         Esto evita que un título largo "empuje" a las otras columnas fuera de la vista.
+      */}
+      <Table className="table-fixed w-full">
         <TableHeader>
           <TableRow>
-            <TableHead className="w-[100px]">Fecha</TableHead>
-            <TableHead>Título</TableHead>
-            <TableHead>Tipo</TableHead>
-            <TableHead>Estado</TableHead>
-            <TableHead>Departamentos</TableHead>
+            <TableHead className="w-[110px]">Fecha</TableHead>
+            {/* Título: ocupa el espacio restante */}
+            <TableHead className="w-auto">Título</TableHead>
+            <TableHead className="w-[100px]">Tipo</TableHead>
+            <TableHead className="w-[110px]">Estado</TableHead>
+            <TableHead className="w-[180px]">Departamentos</TableHead>
             {!esSoloLectura && (
-              <TableHead className="text-right">Acciones</TableHead>
+              <TableHead className="w-[70px] text-right">Acciones</TableHead>
             )}
           </TableRow>
         </TableHeader>
@@ -90,27 +93,26 @@ export function TablaActividades({
               label: act.estado,
               variant: "outline",
             };
-
-            // Depts puede venir null si no tiene join, pero en query agregamos array_agg
-            // Filtramos nulos por seguridad
             const deptsIds = (act.departamentos || []).filter(Boolean);
 
             return (
               <TableRow key={act.id}>
-                <TableCell className="font-medium whitespace-nowrap">
+                <TableCell className="font-medium whitespace-nowrap overflow-hidden text-ellipsis">
                   {fecha}
                 </TableCell>
-                <TableCell
-                  className="max-w-[200px] truncate"
-                  title={act.titulo}
-                >
+
+                {/* CAMBIO: 'truncate' aquí ahora funciona perfectamente gracias a 'table-fixed'.
+                   Si el texto es muy largo, saldrán '...' y no romperá el layout.
+                */}
+                <TableCell className="truncate pr-4" title={act.titulo}>
                   <Link
                     href={`/dashboard/actividades/${act.id}`}
-                    className="hover:underline"
+                    className="hover:underline font-medium"
                   >
                     {act.titulo}
                   </Link>
                 </TableCell>
+
                 <TableCell>
                   <Badge
                     variant={act.tipo === "efemeride" ? "outline" : "secondary"}
@@ -119,23 +121,26 @@ export function TablaActividades({
                     {act.tipo}
                   </Badge>
                 </TableCell>
+
                 <TableCell>
                   <Badge variant={configEstado.variant}>
                     {configEstado.label}
                   </Badge>
                 </TableCell>
+
                 <TableCell>
-                  <div className="flex flex-wrap gap-1">
+                  <div className="flex flex-wrap gap-1 max-h-[40px] overflow-hidden">
                     {deptsIds.slice(0, 2).map((id) => (
                       <span
                         key={id}
-                        className="inline-flex items-center rounded-sm bg-muted px-2 py-1 text-xs font-medium ring-1 ring-inset ring-gray-500/10"
+                        className="inline-flex items-center rounded-sm bg-muted px-1.5 py-0.5 text-[10px] font-medium ring-1 ring-inset ring-gray-500/10 whitespace-nowrap"
                       >
-                        {deptMap.get(id) || "Desc."}
+                        {deptMap.get(id)?.substring(0, 15) || "Desc."}{" "}
+                        {/* Truncamos nombres de dpto también */}
                       </span>
                     ))}
                     {deptsIds.length > 2 && (
-                      <span className="text-xs text-muted-foreground self-center">
+                      <span className="text-[10px] text-muted-foreground self-center">
                         +{deptsIds.length - 2}
                       </span>
                     )}
@@ -146,7 +151,7 @@ export function TablaActividades({
                   <TableCell className="text-right">
                     <DropdownMenu modal={false}>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon">
+                        <Button variant="ghost" size="icon" className="h-8 w-8">
                           <MoreHorizontal className="h-4 w-4" />
                         </Button>
                       </DropdownMenuTrigger>
