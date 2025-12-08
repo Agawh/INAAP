@@ -6,7 +6,7 @@ import type {
   ActualizarActividadDTO,
 } from "@/types";
 
-// --- Tipos para los datos del Dashboard ---
+// ... (Tipos DashboardKPIs, ActividadSimple, etc. se mantienen igual) ...
 export type DashboardKPIs = {
   totalMes: number;
   enProgreso: number;
@@ -28,9 +28,98 @@ export type DashboardData = {
   proximasActividades: ActividadSimple[];
   chartData: DashboardChartData[];
 };
-// ------------------------------------------
+
+export type ResultadoPaginado<T> = {
+  datos: T[];
+  total: number;
+  paginas: number;
+  paginaActual: number;
+};
 
 export class ActividadesService {
+  // --- MÉTODO CORREGIDO ---
+  static async obtenerPaginadas(
+    pagina: number = 1,
+    limite: number = 10,
+    filtro: string = ""
+  ): Promise<ResultadoPaginado<Actividad>> {
+    try {
+      const offset = (pagina - 1) * limite;
+
+      // 1. Definir parámetros base
+      // Ordenamos para que 'filtro' sea siempre el primero ($1) si existe
+      // Esto permite reutilizar la condición WHERE en ambas consultas
+      const paramsData: any[] = [];
+      const paramsCount: any[] = [];
+
+      let condicionWhere = "";
+
+      if (filtro) {
+        // Si hay filtro, es el $1
+        condicionWhere = `
+          WHERE (
+            a.titulo ILIKE $1 OR 
+            a.descripcion ILIKE $1 OR
+            a.tipo ILIKE $1 OR
+            d.nombre ILIKE $1
+          )
+        `;
+        paramsCount.push(`%${filtro}%`);
+        paramsData.push(`%${filtro}%`);
+      }
+
+      // Añadimos limite y offset a los parámetros de datos
+      // Si hay filtro, serán $2 y $3. Si no, serán $1 y $2.
+      paramsData.push(limite);
+      paramsData.push(offset);
+
+      // Indices para LIMIT y OFFSET dinámicos
+      const idxLimit = filtro ? "$2" : "$1";
+      const idxOffset = filtro ? "$3" : "$2";
+
+      // 2. Consulta de TOTAL (Solo usa filtro si existe)
+      const queryTotal = `
+        SELECT COUNT(DISTINCT a.id) as total
+        FROM actividades a
+        LEFT JOIN actividades_departamentos ad ON a.id = ad.actividad_id
+        LEFT JOIN departamentos d ON ad.departamento_id = d.id
+        ${condicionWhere}
+      `;
+
+      const resultTotal = await sql(queryTotal, paramsCount);
+      const total = parseInt(resultTotal.rows[0].total, 10);
+      const totalPaginas = Math.ceil(total / limite);
+
+      // 3. Consulta de DATOS (Usa filtro + limite + offset)
+      const queryData = `
+        SELECT a.*, 
+               array_agg(DISTINCT ad.departamento_id) as departamentos
+        FROM actividades a
+        LEFT JOIN actividades_departamentos ad ON a.id = ad.actividad_id
+        LEFT JOIN departamentos d ON ad.departamento_id = d.id
+        ${condicionWhere}
+        GROUP BY a.id
+        ORDER BY a.fecha_inicio DESC
+        LIMIT ${idxLimit} OFFSET ${idxOffset}
+      `;
+
+      const resultData = await sql(queryData, paramsData);
+
+      return {
+        datos: resultData.rows as Actividad[],
+        total,
+        paginas: totalPaginas,
+        paginaActual: pagina,
+      };
+    } catch (error) {
+      console.error("[ActividadesService] Error obteniendo paginadas:", error);
+      throw error;
+    }
+  }
+
+  // ... (El resto de métodos crear, obtenerPorId, etc. se mantienen igual) ...
+  // [Asegúrate de mantener el resto de la clase intacta como estaba antes]
+
   static async crear(
     datos: CrearActividadDTO,
     usuarioId: string
@@ -47,11 +136,10 @@ export class ActividadesService {
         datos.titulo,
         datos.descripcion || null,
         datos.tipo,
-        datos.fecha_inicio, // Se pasa como string YYYY-MM-DD
+        datos.fecha_inicio,
         usuarioId,
       ];
 
-      // Añadimos prioridad solo si viene definida (si no, usa DEFAULT 'media')
       if (datos.prioridad) {
         campos.push("prioridad");
         valores.push(datos.prioridad);
@@ -68,7 +156,6 @@ export class ActividadesService {
       const resultActividad = await sql(queryActividad, valores);
       const actividad = resultActividad.rows[0] as Actividad;
 
-      // Asociar departamentos
       if (datos.departamento_ids && datos.departamento_ids.length > 0) {
         for (const deptId of datos.departamento_ids) {
           const queryDept = `
@@ -79,7 +166,6 @@ export class ActividadesService {
         }
       }
 
-      // Registrar en auditoría
       const queryAuditoria = `
         INSERT INTO registro_actividades (actividad_id, usuario_id, accion, cambios)
         VALUES ($1, $2, 'creada', $3)
@@ -158,9 +244,6 @@ export class ActividadesService {
     }
   }
 
-  /**
-   * Verifica si una actividad pertenece a un departamento específico.
-   */
   static async verificarPertenencia(
     actividadId: string,
     departamentoId: string
@@ -186,12 +269,10 @@ export class ActividadesService {
     usuarioId: string
   ): Promise<Actividad> {
     try {
-      // 1. Crear listas de parámetros separadas
       const setClause: string[] = [];
       const updateParams: any[] = [];
       let paramIndex = 1;
 
-      // 2. Construir la consulta de UPDATE
       if (datos.titulo !== undefined) {
         setClause.push(`titulo = $${paramIndex}`);
         updateParams.push(datos.titulo);
@@ -222,35 +303,29 @@ export class ActividadesService {
         updateParams.push(datos.tipo);
         paramIndex++;
       }
-      // Actualizar fecha como string
       if (datos.fecha_inicio !== undefined) {
         setClause.push(`fecha_inicio = $${paramIndex}`);
         updateParams.push(datos.fecha_inicio);
         paramIndex++;
       }
 
-      // 3. Manejar el caso de que no haya campos para actualizar en la tabla principal
       if (setClause.length === 0 && !datos.departamento_ids) {
         const actividad = await this.obtenerPorId(id);
         if (!actividad) throw new Error("Actividad no encontrada");
         return actividad;
       }
 
-      // 4. Ejecutar la consulta de UPDATE
       if (setClause.length > 0) {
-        updateParams.push(id); // El ID va al final
-
+        updateParams.push(id);
         const queryUpdate = `
           UPDATE actividades
           SET ${setClause.join(", ")}
           WHERE id = $${paramIndex} 
           RETURNING *
         `;
-
         await sql(queryUpdate, updateParams);
       }
 
-      // 5. Actualizar departamentos (Borrar y reinsertar)
       if (datos.departamento_ids) {
         await sql(
           `DELETE FROM actividades_departamentos WHERE actividad_id = $1`,
@@ -266,14 +341,12 @@ export class ActividadesService {
         }
       }
 
-      // 6. Registrar en auditoría
       const queryAuditoria = `
         INSERT INTO registro_actividades (actividad_id, usuario_id, accion, cambios)
         VALUES ($1, $2, 'actualizada', $3)
       `;
       await sql(queryAuditoria, [id, usuarioId, JSON.stringify(datos)]);
 
-      // 7. Devolver la actividad actualizada
       const actividadActualizada = await this.obtenerPorId(id);
       if (!actividadActualizada)
         throw new Error("Actividad no encontrada después de actualizar");
@@ -284,12 +357,8 @@ export class ActividadesService {
     }
   }
 
-  /**
-   * Obtiene todos los datos agregados para el Panel de Control principal.
-   */
   static async obtenerDatosDashboard(): Promise<DashboardData> {
     try {
-      // 1. Consultas para los KPIs
       const kpiQueries = [
         sql(
           "SELECT COUNT(*) FROM actividades WHERE date_trunc('month', fecha_inicio) = date_trunc('month', CURRENT_DATE)"
@@ -302,7 +371,6 @@ export class ActividadesService {
         ]),
       ];
 
-      // 2. Consulta para las próximas actividades
       const proximasQuery = sql(
         `SELECT id, titulo, fecha_inicio, estado
         FROM actividades
@@ -312,7 +380,6 @@ export class ActividadesService {
         ["pendiente"]
       );
 
-      // 3. Consulta para el gráfico
       const chartQuery = sql(
         `SELECT estado, COUNT(*) as total
         FROM actividades
@@ -359,10 +426,6 @@ export class ActividadesService {
     }
   }
 
-  /**
-   * Obtiene todas las actividades (no canceladas) para generar el feed del calendario.
-   * Trae actividades desde hace 1 mes en adelante.
-   */
   static async obtenerParaCalendario(): Promise<Actividad[]> {
     try {
       const query = `
