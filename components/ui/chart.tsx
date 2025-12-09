@@ -105,17 +105,29 @@ ${colorConfig
 
 const ChartTooltip = RechartsPrimitive.Tooltip;
 
+// --- FIX 1: Tipado manual para Tooltip ---
 const ChartTooltipContent = React.forwardRef<
   HTMLDivElement,
-  React.ComponentProps<typeof RechartsPrimitive.Tooltip> &
-    React.ComponentProps<"div"> & {
-      hideLabel?: boolean;
-      hideIndicator?: boolean;
-      indicator?: "line" | "dot" | "dashed";
-      nameKey?: string;
-      labelKey?: string;
-      payload?: any[]; // --- CORRECCIÓN AQUÍ: Tipado explícito para evitar error de TS ---
-    }
+  React.ComponentProps<"div"> & {
+    active?: boolean;
+    payload?: any[];
+    indicator?: "line" | "dot" | "dashed";
+    hideLabel?: boolean;
+    hideIndicator?: boolean;
+    label?: string;
+    labelFormatter?: (label: any, payload: any[]) => React.ReactNode;
+    labelClassName?: string;
+    formatter?: (
+      value: any,
+      name: any,
+      item: any,
+      index: number,
+      payload: any
+    ) => React.ReactNode;
+    color?: string;
+    nameKey?: string;
+    labelKey?: string;
+  }
 >(
   (
     {
@@ -262,17 +274,19 @@ ChartTooltipContent.displayName = "ChartTooltipContent";
 
 const ChartLegend = RechartsPrimitive.Legend;
 
+// --- FIX 2: Tipado manual para Legend ---
 function ChartLegendContent({
   className,
   hideIcon = false,
   payload,
   verticalAlign = "bottom",
   nameKey,
-}: React.ComponentProps<"div"> &
-  Pick<RechartsPrimitive.LegendProps, "payload" | "verticalAlign"> & {
-    hideIcon?: boolean;
-    nameKey?: string;
-  }) {
+}: React.ComponentProps<"div"> & {
+  hideIcon?: boolean;
+  nameKey?: string;
+  verticalAlign?: "top" | "middle" | "bottom";
+  payload?: any[]; // Definido como any[] explícitamente para evitar error de .map
+}) {
   const { config } = useChart();
 
   if (!payload?.length) {
