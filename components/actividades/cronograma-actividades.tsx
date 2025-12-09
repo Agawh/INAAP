@@ -27,7 +27,6 @@ import {
   PauseCircle,
   CalendarClock,
 } from "lucide-react";
-// --- ¡CAMBIO! Importamos Rol ---
 import type { Actividad, Departamento, EstadoActividad, Rol } from "@/types";
 import {
   DropdownMenu,
@@ -41,13 +40,10 @@ import { accionActualizarEstadoActividad } from "@/app/actions/actividades.actio
 import { useToast } from "@/hooks/use-toast";
 import { Separator } from "@/components/ui/separator";
 
-// (Funciones auxiliares sin cambios)
-function estaEnElMes(fechaActividad: Date, mesMostrado: Date) {
-  return (
-    fechaActividad.getMonth() === mesMostrado.getMonth() &&
-    fechaActividad.getFullYear() === mesMostrado.getFullYear()
-  );
-}
+// Funciones auxiliares de fecha (MODIFICADAS PARA USAR LÓGICA LOCAL SEGURA)
+// Nota: Ya no comparamos objetos Date directamente porque tienen timezones.
+// Comparamos los componentes día/mes/año extraídos manualmente.
+
 function esElMismoDia(fecha1: Date, fecha2: Date) {
   return (
     fecha1.getDate() === fecha2.getDate() &&
@@ -55,6 +51,14 @@ function esElMismoDia(fecha1: Date, fecha2: Date) {
     fecha1.getFullYear() === fecha2.getFullYear()
   );
 }
+
+function estaEnElMes(fechaActividad: Date, mesMostrado: Date) {
+  return (
+    fechaActividad.getMonth() === mesMostrado.getMonth() &&
+    fechaActividad.getFullYear() === mesMostrado.getFullYear()
+  );
+}
+
 function traducirEstado(estado: EstadoActividad | string) {
   switch (estado) {
     case "pendiente":
@@ -72,7 +76,6 @@ function traducirEstado(estado: EstadoActividad | string) {
   }
 }
 
-// --- ¡CAMBIO! Nueva prop 'rolUsuario' ---
 type CronogramaProps = {
   actividades: Actividad[];
   departamentos: Departamento[];
@@ -82,7 +85,7 @@ type CronogramaProps = {
 export function CronogramaActividades({
   actividades,
   departamentos,
-  rolUsuario, // <-- Recibimos el rol
+  rolUsuario,
 }: CronogramaProps) {
   const { toast } = useToast();
   const [isPending, startTransition] = useTransition();
@@ -90,22 +93,38 @@ export function CronogramaActividades({
   const [fecha, setFecha] = React.useState<Date | undefined>(new Date());
   const [mesMostrado, setMesMostrado] = React.useState<Date>(new Date());
 
-  // --- ¡CAMBIO! Variable para saber si es solo lectura ---
   const esSoloLectura = rolUsuario === "miembro_departamento";
 
   const deptMap = React.useMemo(() => {
     return new Map(departamentos.map((d) => [d.id, d.nombre]));
   }, [departamentos]);
 
+  // --- CORRECCIÓN FECHAS: Transformación de Datos ---
+  // Convertimos las fechas crudas de la BD a objetos Date locales
+  // usando la técnica de parsing manual para evitar el timezone del navegador.
   const actividadesConFechas = React.useMemo(() => {
-    return actividades.map((act) => ({
-      ...act,
-      fecha_inicio: new Date(act.fecha_inicio),
-      departamentos: (act.departamentos || []).filter(Boolean) as string[],
-    }));
+    return actividades.map((act) => {
+      let fechaVisual = new Date();
+
+      if (act.fecha_inicio) {
+        // 1. Obtener string ISO original ("2025-12-12...")
+        const fechaString = new Date(act.fecha_inicio)
+          .toISOString()
+          .split("T")[0];
+        // 2. Parsear manualmente [2025, 12, 12]
+        const [anio, mes, dia] = fechaString.split("-").map(Number);
+        // 3. Crear fecha local (Mes es base 0)
+        fechaVisual = new Date(anio, mes - 1, dia);
+      }
+
+      return {
+        ...act,
+        fecha_inicio: fechaVisual, // Usamos esta fecha corregida para todo el componente
+        departamentos: (act.departamentos || []).filter(Boolean) as string[],
+      };
+    });
   }, [actividades]);
 
-  // ... (Memos de filtrado sin cambios)
   const diasConActividad = React.useMemo(() => {
     return actividadesConFechas.map((act) => act.fecha_inicio);
   }, [actividadesConFechas]);
@@ -245,7 +264,6 @@ export function CronogramaActividades({
           </div>
         </div>
 
-        {/* --- ¡CAMBIO! Ocultar Dropdown si es solo lectura --- */}
         {!esSoloLectura && (
           <DropdownMenu modal={false}>
             <DropdownMenuTrigger asChild>
@@ -378,7 +396,6 @@ export function CronogramaActividades({
                 {descripcionTitulo}
               </CardDescription>
             </div>
-            {/* --- ¡CAMBIO! Ocultar botón de crear si es solo lectura --- */}
             {!esSoloLectura && (
               <Button size="icon" variant="outline" asChild>
                 <Link href="/dashboard/actividades/crear">
@@ -390,7 +407,6 @@ export function CronogramaActividades({
           <CardContent>
             <ScrollArea className="h-[450px]">
               <div className="flex flex-col gap-4">
-                {/* (Listas de actividades sin cambios...) */}
                 {actividadesPendientes.length === 0 &&
                 actividadesFinalizadas.length === 0 ? (
                   <p className="py-8 text-center text-sm text-muted-foreground">
