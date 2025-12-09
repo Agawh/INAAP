@@ -24,12 +24,8 @@ export type EstadoFormularioActividad = {
 // Usaremos el mismo esquema para crear y editar
 const schemaEditarActividad = z.object({
   titulo: z.string().min(3, "El título debe tener al menos 3 caracteres"),
-
   descripcion: z.string().optional(),
-
-  // --- ¡CORRECCIÓN! ---
-  // Eliminamos .pipe(z.coerce.date()) para que se mantenga como string
-  // y coincida con el tipo de los DTOs y el servicio.
+  // Validamos como string YYYY-MM-DD
   fecha_inicio: z
     .string()
     .min(10, "La fecha de inicio es requerida.")
@@ -37,17 +33,16 @@ const schemaEditarActividad = z.object({
       /^\d{4}-\d{2}-\d{2}$/,
       "Formato de fecha inválido (debe ser YYYY-MM-DD)"
     ),
-
   tipo: z
     .string()
     .min(1, "Debe seleccionar un tipo de actividad.")
     .pipe(z.enum(["operativa", "efemeride"])),
-
   departamento_ids: z
     .array(z.string().uuid("ID de departamento inválido."))
     .min(1, "Debe seleccionar al menos un departamento."),
 });
 
+// --- ACCIÓN CREAR ---
 export async function accionCrearActividad(
   estadoPrevio: EstadoFormularioActividad,
   formData: FormData
@@ -60,9 +55,9 @@ export async function accionCrearActividad(
     };
   }
   const idUsuarioLogueado = session.user.id;
-
   const rolUsuario = session.user.rol as Rol;
 
+  // Lógica de permisos original
   if (rolUsuario === "jefe_departamento") {
     const idDeptoUsuario = (
       await UsuariosService.obtenerUsuarioPorId(idUsuarioLogueado)
@@ -94,27 +89,29 @@ export async function accionCrearActividad(
     tipo: formData.get("tipo"),
     departamento_ids: formData.getAll("departamento_ids"),
   });
+
   if (!datosValidados.success) {
     return {
       mensaje: "Error de validación. Revise los campos.",
       errores: datosValidados.error.flatten().fieldErrors,
     };
   }
-  const {
-    titulo,
-    descripcion,
-    fecha_inicio, // Ahora es string, compatible con DTO
-    tipo,
-    departamento_ids,
-  } = datosValidados.data;
+
+  const { titulo, descripcion, fecha_inicio, tipo, departamento_ids } =
+    datosValidados.data;
+
+  // --- CORRECCIÓN FECHA: Estrategia del Mediodía ---
+  const fechaSegura = new Date(`${fecha_inicio}T12:00:00Z`);
 
   const dto: CrearActividadDTO = {
     titulo,
     descripcion: descripcion || undefined,
-    fecha_inicio,
+    // FIX AQUÍ: Convertimos a String ISO para satisfacer el tipo DTO
+    fecha_inicio: fechaSegura.toISOString(),
     tipo: tipo as TipoActividad,
     departamento_ids,
   };
+
   try {
     await ActividadesService.crear(dto, idUsuarioLogueado);
   } catch (error: any) {
@@ -128,6 +125,7 @@ export async function accionCrearActividad(
   redirect("/dashboard/actividades");
 }
 
+// --- ACCIÓN ELIMINAR ---
 export async function accionEliminarActividad(
   actividadId: string
 ): Promise<{ success: boolean; message: string }> {
@@ -176,6 +174,7 @@ export async function accionEliminarActividad(
   }
 }
 
+// --- ACCIÓN ACTUALIZAR ESTADO ---
 const schemaActualizarEstado = z.object({
   actividadId: z.string().uuid(),
   nuevoEstado: z.enum([
@@ -250,6 +249,7 @@ export async function accionActualizarEstadoActividad(
   }
 }
 
+// --- ACCIÓN EDITAR ---
 export async function accionEditarActividad(
   actividadId: string,
   estadoPrevio: EstadoFormularioActividad,
@@ -305,42 +305,39 @@ export async function accionEditarActividad(
     tipo: formData.get("tipo"),
     departamento_ids: formData.getAll("departamento_ids"),
   });
+
   if (!datosValidados.success) {
     return {
       mensaje: "Error de validación. Revise los campos.",
       errores: datosValidados.error.flatten().fieldErrors,
     };
   }
-  const {
-    titulo,
-    descripcion,
-    fecha_inicio, // string
-    tipo,
-    departamento_ids,
-  } = datosValidados.data;
+  const { titulo, descripcion, fecha_inicio, tipo, departamento_ids } =
+    datosValidados.data;
+
+  // --- CORRECCIÓN FECHA: Estrategia del Mediodía ---
+  const fechaSegura = new Date(`${fecha_inicio}T12:00:00Z`);
 
   const dto: ActualizarActividadDTO = {
     titulo,
     descripcion: descripcion || undefined,
     tipo: tipo as TipoActividad,
     departamento_ids,
-    fecha_inicio: fecha_inicio,
+    // FIX AQUÍ: Convertimos a String ISO
+    fecha_inicio: fechaSegura.toISOString(),
   };
 
   // --- LÓGICA DE REACTIVACIÓN ---
   try {
-    // 1. Buscamos la actividad original
     const actividadActual = await ActividadesService.obtenerPorId(actividadId);
 
     if (actividadActual && actividadActual.estado === "suspendido") {
-      // 2. Formateamos la fecha actual de la BD a string YYYY-MM-DD
       const fechaDb = new Date(actividadActual.fecha_inicio)
         .toISOString()
         .split("T")[0];
 
-      // 3. Comparamos strings (ahora es seguro porque ambos son strings YYYY-MM-DD)
       if (fechaDb !== fecha_inicio) {
-        dto.estado = "pendiente"; // Reactivamos la actividad
+        dto.estado = "pendiente";
       }
     }
 
@@ -352,7 +349,6 @@ export async function accionEditarActividad(
       errores: {},
     };
   }
-  // --------------------------------------
 
   revalidatePath("/dashboard/actividades");
   redirect("/dashboard/actividades");

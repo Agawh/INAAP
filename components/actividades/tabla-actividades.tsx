@@ -52,6 +52,7 @@ export function TablaActividades({
 
   return (
     <div className="rounded-md border overflow-hidden">
+      {/* 'table-fixed' fuerza el respeto de anchos y permite truncate */}
       <Table className="table-fixed w-full">
         <TableHeader>
           <TableRow>
@@ -77,18 +78,18 @@ export function TablaActividades({
             </TableRow>
           )}
           {actividades.map((act) => {
-            // --- CORRECCIÓN DE ZONA HORARIA (UTC FIX) ---
-            // Creamos el objeto Date
+            // --- FIX UTC PARA LECTURA ---
+            // Leemos la fecha ignorando la zona horaria del navegador
             const fechaObj = new Date(act.fecha_inicio);
 
-            // Usamos métodos UTC para obtener los componentes exactos sin conversión de zona horaria
+            // Extraemos los componentes UTC (Dato crudo de la BD)
             const dia = fechaObj.getUTCDate().toString().padStart(2, "0");
             const mes = (fechaObj.getUTCMonth() + 1)
               .toString()
-              .padStart(2, "0"); // Meses van de 0-11
+              .padStart(2, "0");
             const anio = fechaObj.getUTCFullYear();
 
-            // Construimos la cadena manualmente: DD/MM/YYYY
+            // Formato DD/MM/YYYY manual
             const fechaFormateada = `${dia}/${mes}/${anio}`;
 
             const configEstado = estadoMap[act.estado] || {
@@ -99,6 +100,7 @@ export function TablaActividades({
 
             return (
               <TableRow key={act.id}>
+                {/* Mostramos la fecha formateada manualmente */}
                 <TableCell className="font-medium whitespace-nowrap overflow-hidden text-ellipsis">
                   {fechaFormateada}
                 </TableCell>
