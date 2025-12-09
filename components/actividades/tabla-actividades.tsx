@@ -36,7 +36,7 @@ const estadoMap: Record<
   }
 > = {
   pendiente: { label: "Pendiente", variant: "outline" },
-  en_progreso: { label: "En progreso", variant: "secondary" }, // Capitalización corregida
+  en_progreso: { label: "En progreso", variant: "secondary" },
   completada: { label: "Completada", variant: "default" },
   cancelada: { label: "Cancelada", variant: "destructive" },
   suspendido: { label: "Suspendido", variant: "destructive" },
@@ -52,14 +52,10 @@ export function TablaActividades({
 
   return (
     <div className="rounded-md border overflow-hidden">
-      {/* CAMBIO TÉCNICO: 'table-fixed' fuerza a la tabla a respetar los anchos de columna definidos.
-         Esto evita que un título largo "empuje" a las otras columnas fuera de la vista.
-      */}
       <Table className="table-fixed w-full">
         <TableHeader>
           <TableRow>
             <TableHead className="w-[110px]">Fecha</TableHead>
-            {/* Título: ocupa el espacio restante */}
             <TableHead className="w-auto">Título</TableHead>
             <TableHead className="w-[100px]">Tipo</TableHead>
             <TableHead className="w-[110px]">Estado</TableHead>
@@ -81,14 +77,20 @@ export function TablaActividades({
             </TableRow>
           )}
           {actividades.map((act) => {
-            const fecha = new Date(act.fecha_inicio).toLocaleDateString(
-              "es-ES",
-              {
-                day: "2-digit",
-                month: "2-digit",
-                year: "numeric",
-              }
-            );
+            // --- CORRECCIÓN DE ZONA HORARIA (UTC FIX) ---
+            // Creamos el objeto Date
+            const fechaObj = new Date(act.fecha_inicio);
+
+            // Usamos métodos UTC para obtener los componentes exactos sin conversión de zona horaria
+            const dia = fechaObj.getUTCDate().toString().padStart(2, "0");
+            const mes = (fechaObj.getUTCMonth() + 1)
+              .toString()
+              .padStart(2, "0"); // Meses van de 0-11
+            const anio = fechaObj.getUTCFullYear();
+
+            // Construimos la cadena manualmente: DD/MM/YYYY
+            const fechaFormateada = `${dia}/${mes}/${anio}`;
+
             const configEstado = estadoMap[act.estado] || {
               label: act.estado,
               variant: "outline",
@@ -98,12 +100,9 @@ export function TablaActividades({
             return (
               <TableRow key={act.id}>
                 <TableCell className="font-medium whitespace-nowrap overflow-hidden text-ellipsis">
-                  {fecha}
+                  {fechaFormateada}
                 </TableCell>
 
-                {/* CAMBIO: 'truncate' aquí ahora funciona perfectamente gracias a 'table-fixed'.
-                   Si el texto es muy largo, saldrán '...' y no romperá el layout.
-                */}
                 <TableCell className="truncate pr-4" title={act.titulo}>
                   <Link
                     href={`/dashboard/actividades/${act.id}`}
@@ -135,8 +134,7 @@ export function TablaActividades({
                         key={id}
                         className="inline-flex items-center rounded-sm bg-muted px-1.5 py-0.5 text-[10px] font-medium ring-1 ring-inset ring-gray-500/10 whitespace-nowrap"
                       >
-                        {deptMap.get(id)?.substring(0, 15) || "Desc."}{" "}
-                        {/* Truncamos nombres de dpto también */}
+                        {deptMap.get(id)?.substring(0, 15) || "Desc."}
                       </span>
                     ))}
                     {deptsIds.length > 2 && (
