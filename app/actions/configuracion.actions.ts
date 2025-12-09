@@ -5,25 +5,33 @@ import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
 import { UsuariosService } from "@/services/usuarios.service";
-// 'ConfiguracionNotificaciones' ya no es necesario aquí
 
-// Estado del formulario simplificado
+// Estado del formulario
 export type EstadoFormularioPerfil = {
   mensaje: string;
   tipo: "exito" | "error";
   errores?: {
-    // Ya no hay errores de notificación
     password_actual?: string[];
     password_nueva?: string[];
   };
-  // Para limpiar el formulario de contraseña en caso de éxito
   resetPasswordFields?: boolean;
 };
 
-// --- schemaNotificaciones eliminado ---
-// --- accionActualizarNotificaciones eliminado ---
+// --- Esquema para Notificaciones ---
+// El checkbox envía "on" si está marcado, o nada si no.
+// Zod espera transformar eso a boolean.
+const schemaNotificaciones = z.object({
+  email_habilitado: z
+    .string()
+    .optional()
+    .transform((val) => val === "on"),
+  telegram_habilitado: z
+    .string()
+    .optional()
+    .transform((val) => val === "on"),
+});
 
-// --- Esquema para la sección de Contraseña (sin cambios) ---
+// --- Esquema para Contraseña ---
 const schemaPassword = z.object({
   password_actual: z.string().min(1, "Debe ingresar su contraseña actual."),
   password_nueva: z
@@ -32,7 +40,51 @@ const schemaPassword = z.object({
 });
 
 /**
- * Acción para actualizar la CONTRASEÑA del usuario logueado
+ * Acción para actualizar la CONFIGURACIÓN DE NOTIFICACIONES
+ */
+export async function accionActualizarNotificaciones(
+  estadoPrevio: EstadoFormularioPerfil,
+  formData: FormData
+): Promise<EstadoFormularioPerfil> {
+  const session = await auth();
+  if (!session?.user?.id) {
+    return { mensaje: "Acceso denegado.", tipo: "error" };
+  }
+
+  // Parseamos los datos (los checkbox no enviados son undefined -> false)
+  const datos = {
+    email_habilitado: formData.get("email_habilitado"),
+    telegram_habilitado: formData.get("telegram_habilitado"),
+  };
+
+  const validacion = schemaNotificaciones.safeParse(datos);
+
+  if (!validacion.success) {
+    return { mensaje: "Datos inválidos.", tipo: "error" };
+  }
+
+  try {
+    await UsuariosService.actualizarConfiguracionNotificaciones(
+      session.user.id,
+      {
+        email_habilitado: validacion.data.email_habilitado,
+        telegram_habilitado: validacion.data.telegram_habilitado,
+      }
+    );
+
+    revalidatePath("/dashboard/perfil");
+    return {
+      mensaje: "Preferencias guardadas correctamente.",
+      tipo: "exito",
+    };
+  } catch (error) {
+    console.error("[ACCION_NOTIFICACIONES]", error);
+    return { mensaje: "Error al guardar preferencias.", tipo: "error" };
+  }
+}
+
+/**
+ * Acción para actualizar la CONTRASEÑA
  */
 export async function accionActualizarPassword(
   estadoPrevio: EstadoFormularioPerfil,
@@ -60,7 +112,6 @@ export async function accionActualizarPassword(
   const { password_actual, password_nueva } = datosValidados.data;
 
   try {
-    // 1. Verificar la contraseña actual (usando la función real del servicio)
     const passwordValida = await UsuariosService.verificarPassword(
       usuarioId,
       password_actual
@@ -76,18 +127,13 @@ export async function accionActualizarPassword(
       };
     }
 
-    // 2. Si es válida, actualizar con la nueva contraseña
-    await UsuariosService.actualizarUsuario(
-      usuarioId,
-      {}, // No actualizamos otros datos del usuario
-      password_nueva
-    );
+    await UsuariosService.actualizarUsuario(usuarioId, {}, password_nueva);
 
     revalidatePath("/dashboard/perfil");
     return {
       mensaje: "Contraseña actualizada exitosamente.",
       tipo: "exito",
-      resetPasswordFields: true, // <- Enviamos señal para limpiar inputs
+      resetPasswordFields: true,
     };
   } catch (error) {
     console.error("[ACCION_PASSWORD]", error);
