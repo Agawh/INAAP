@@ -52,7 +52,7 @@ export function TablaActividades({
 
   return (
     <div className="rounded-md border overflow-hidden">
-      {/* 'table-fixed' fuerza el respeto de anchos y permite truncate */}
+      {/* 'table-fixed' asegura que las columnas respeten el ancho y no bailen */}
       <Table className="table-fixed w-full">
         <TableHeader>
           <TableRow>
@@ -78,19 +78,23 @@ export function TablaActividades({
             </TableRow>
           )}
           {actividades.map((act) => {
-            // --- FIX UTC PARA LECTURA ---
-            // Leemos la fecha ignorando la zona horaria del navegador
-            const fechaObj = new Date(act.fecha_inicio);
+            // --- FIX DEFINITIVO DE FECHAS ---
+            // Convertimos la fecha a un string ISO puro ("YYYY-MM-DD...")
+            // y extraemos manualmente los números.
+            // Esto evita que el navegador aplique restas de zona horaria (UTC-4).
 
-            // Extraemos los componentes UTC (Dato crudo de la BD)
-            const dia = fechaObj.getUTCDate().toString().padStart(2, "0");
-            const mes = (fechaObj.getUTCMonth() + 1)
-              .toString()
-              .padStart(2, "0");
-            const anio = fechaObj.getUTCFullYear();
+            let fechaFormateada = "Sin fecha";
 
-            // Formato DD/MM/YYYY manual
-            const fechaFormateada = `${dia}/${mes}/${anio}`;
+            if (act.fecha_inicio) {
+              // 1. Aseguramos formato ISO
+              const fechaString = new Date(act.fecha_inicio)
+                .toISOString()
+                .split("T")[0];
+              // 2. Separamos Año, Mes, Día
+              const [anio, mes, dia] = fechaString.split("-");
+              // 3. Reconstruimos en orden latino (DD/MM/YYYY)
+              fechaFormateada = `${dia}/${mes}/${anio}`;
+            }
 
             const configEstado = estadoMap[act.estado] || {
               label: act.estado,
@@ -100,7 +104,7 @@ export function TablaActividades({
 
             return (
               <TableRow key={act.id}>
-                {/* Mostramos la fecha formateada manualmente */}
+                {/* Renderizamos la fecha formateada manualmente */}
                 <TableCell className="font-medium whitespace-nowrap overflow-hidden text-ellipsis">
                   {fechaFormateada}
                 </TableCell>
