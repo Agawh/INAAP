@@ -1,73 +1,132 @@
-// /app/dashboard/actividades/[id]/page.tsx
-import { redirect } from "next/navigation";
 import { auth } from "@/auth";
-import { DepartamentosService } from "@/services/departamentos.service";
+import { notFound, redirect } from "next/navigation";
 import { ActividadesService } from "@/services/actividades.service";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { AlertTriangle } from "lucide-react";
-import { FormularioEditarActividad } from "@/components/actividades/formulario-editar-actividad";
-import type { Rol } from "@/types"; // Importamos el tipo Rol
+import { DepartamentosService } from "@/services/departamentos.service";
+import { FormularioEditarActividad } from "@/components/actividades/formulario-editar-actividad"; // Asegúrate que este sea el nombre de tu componente
+import { Badge } from "@/components/ui/badge";
+import { CalendarDays, MapPin } from "lucide-react";
+import type { Rol } from "@/types";
 
-type EditarActividadPageProps = {
-  params: Promise<{
-    id: string;
-  }>;
+// Helper para traducir estados visualmente
+const estadoMap: Record<string, { label: string; className: string }> = {
+  pendiente: {
+    label: "Pendiente",
+    className: "bg-gray-100 text-gray-800 border-gray-200",
+  },
+  en_progreso: {
+    label: "En Progreso",
+    className: "bg-blue-100 text-blue-800 border-blue-200",
+  },
+  completada: {
+    label: "Completada",
+    className: "bg-green-100 text-green-800 border-green-200",
+  },
+  cancelada: {
+    label: "Cancelada",
+    className: "bg-red-100 text-red-800 border-red-200",
+  },
+  suspendido: {
+    label: "Suspendido",
+    className: "bg-orange-100 text-orange-800 border-orange-200",
+  },
 };
 
-export default async function EditarActividadPage({
+export default async function PaginaDetalleActividad({
   params,
-}: EditarActividadPageProps) {
+}: {
+  params: Promise<{ id: string }>;
+}) {
   const session = await auth();
-  const { id } = await params;
-
-  // 1. Verificación de Seguridad
   if (!session?.user) {
-    redirect("/");
+    redirect("/login");
   }
 
-  // 2. Obtener datos
+  // En Next.js 15/16 params es una promesa, hay que esperarla
+  const { id } = await params;
+
+  // 1. Buscamos la actividad y los departamentos
   const [actividad, departamentos] = await Promise.all([
     ActividadesService.obtenerPorId(id),
     DepartamentosService.obtenerTodos(),
   ]);
 
-  // 3. Validar existencia
+  // Si no existe, mandamos al 404
   if (!actividad) {
-    return (
-      <Alert variant="destructive">
-        <AlertTriangle className="h-4 w-4" />
-        <AlertTitle>Actividad no Encontrada</AlertTitle>
-        <AlertDescription>
-          No se pudo encontrar la actividad que intentas editar (ID: {id}).
-        </AlertDescription>
-      </Alert>
-    );
+    notFound();
   }
 
-  // --- NUEVA LÓGICA DE SOLO LECTURA ---
-  // Un miembro del departamento solo puede VER, no editar.
+  // --- FIX DE FECHA (El corazón del arreglo) ---
+  // Como ahora 'fecha_inicio' es un string "YYYY-MM-DD", no usamos new Date().
+  // Lo partimos manualmente para mostrarlo DD/MM/YYYY sin errores de zona horaria.
+  let fechaVisual = "Fecha no definida";
+  if (actividad.fecha_inicio) {
+    const fechaStr = String(actividad.fecha_inicio); // Aseguramos que sea string
+    // Si viene con hora (ISO), quitamos la hora. Si es simple, lo dejamos.
+    const soloFecha = fechaStr.includes("T")
+      ? fechaStr.split("T")[0]
+      : fechaStr;
+    const [anio, mes, dia] = soloFecha.split("-");
+    fechaVisual = `${dia}/${mes}/${anio}`;
+  }
+
+  const estadoInfo = estadoMap[actividad.estado] || estadoMap["pendiente"];
   const rolUsuario = session.user.rol as Rol;
   const esSoloLectura = rolUsuario === "miembro_departamento";
 
   return (
-    <div className="flex flex-col gap-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">
-          {esSoloLectura ? "Detalles de la Actividad" : "Editar Actividad"}
-        </h1>
-        <p className="text-lg text-muted-foreground">
-          {esSoloLectura
-            ? "Visualización de los detalles de la actividad."
-            : `Modificar los datos de: ${actividad.titulo}.`}
-        </p>
+    <div className="space-y-6">
+      {/* Encabezado de Detalles (Solo lectura bonita) */}
+      <div className="flex flex-col gap-4 border-b pb-6 md:flex-row md:items-start md:justify-between">
+        <div className="space-y-1.5">
+          <div className="flex items-center gap-2">
+            <Badge variant="outline" className="capitalize">
+              {actividad.tipo}
+            </Badge>
+            <span
+              className={`px-2 py-0.5 rounded-full text-xs font-medium border ${estadoInfo.className}`}
+            >
+              {estadoInfo.label}
+            </span>
+          </div>
+          <h1 className="text-2xl font-bold tracking-tight">
+            {actividad.titulo}
+          </h1>
+          <div className="flex items-center gap-4 text-sm text-muted-foreground">
+            <div className="flex items-center gap-1">
+              <CalendarDays className="h-4 w-4" />
+              {/* Aquí usamos la fecha visual corregida */}
+              <span>{fechaVisual}</span>
+            </div>
+            {/* Si tuvieras ubicación o departamentos, podrías mostrarlos aquí */}
+            {actividad.departamentos && actividad.departamentos.length > 0 && (
+              <div className="flex items-center gap-1">
+                <MapPin className="h-4 w-4" />
+                <span>{actividad.departamentos.length} Depto(s)</span>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
 
-      {/* 4. Pasar la propiedad 'soloLectura' al formulario */}
-      <FormularioEditarActividad
-        actividad={actividad}
-        departamentos={departamentos}
-        soloLectura={esSoloLectura}
-      />
+      {/* Formulario de Edición (Oculto si es solo lectura estricta, o en modo 'readOnly') */}
+      <div className="rounded-lg border bg-card text-card-foreground shadow-sm">
+        <div className="p-6">
+          {esSoloLectura ? (
+            <div className="prose max-w-none">
+              <h3 className="text-lg font-semibold mb-2">Descripción</h3>
+              <p className="text-gray-600 whitespace-pre-wrap">
+                {actividad.descripcion || "Sin descripción detallada."}
+              </p>
+            </div>
+          ) : (
+            /* Aquí cargamos tu componente de formulario existente */
+            <FormularioEditarActividad
+              actividad={actividad}
+              departamentos={departamentos}
+            />
+          )}
+        </div>
+      </div>
     </div>
   );
 }
