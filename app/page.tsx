@@ -231,7 +231,7 @@ export default function LoginPage() {
         {/* --- PIE DE PÁGINA PROFESIONAL --- */}
         <div className="mt-8 text-center space-y-2">
           <p className="text-xs text-white/70 font-light tracking-wide">
-            Sistema de registro de Aatividades y cronogramas Turísticos
+            Sistema de registro de actividades y cronogramas turísticos
           </p>
           <div className="flex items-center justify-center gap-2 text-xs text-white/50">
             <span>INATUR Táchira</span>
