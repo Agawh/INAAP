@@ -40,9 +40,18 @@ import { accionActualizarEstadoActividad } from "@/app/actions/actividades.actio
 import { useToast } from "@/hooks/use-toast";
 import { Separator } from "@/components/ui/separator";
 
-// Funciones auxiliares de fecha (MODIFICADAS PARA USAR LÓGICA LOCAL SEGURA)
-// Nota: Ya no comparamos objetos Date directamente porque tienen timezones.
-// Comparamos los componentes día/mes/año extraídos manualmente.
+// --- FUNCIONES AUXILIARES DE FECHA (FIX LOCAL) ---
+
+// Función mágica: Convierte cualquier fecha UTC/ISO a medianoche LOCAL exacta
+const obtenerFechaLocal = (fechaInput: string | Date) => {
+  // 1. Convertimos a objeto Date para asegurar
+  const dateObj = new Date(fechaInput);
+  // 2. Obtenemos el string ISO ("2025-12-12T...") y cortamos la parte de la fecha ("2025-12-12")
+  const yyyymmdd = dateObj.toISOString().split("T")[0];
+  // 3. Creamos una nueva fecha agregando T00:00:00 SIN la 'Z'.
+  // Al no tener 'Z', el navegador asume que es la hora local del usuario.
+  return new Date(`${yyyymmdd}T00:00:00`);
+};
 
 function esElMismoDia(fecha1: Date, fecha2: Date) {
   return (
@@ -90,6 +99,7 @@ export function CronogramaActividades({
   const { toast } = useToast();
   const [isPending, startTransition] = useTransition();
 
+  // Inicializamos con la fecha local de hoy
   const [fecha, setFecha] = React.useState<Date | undefined>(new Date());
   const [mesMostrado, setMesMostrado] = React.useState<Date>(new Date());
 
@@ -99,36 +109,27 @@ export function CronogramaActividades({
     return new Map(departamentos.map((d) => [d.id, d.nombre]));
   }, [departamentos]);
 
-  // --- CORRECCIÓN FECHAS: Transformación de Datos ---
-  // Convertimos las fechas crudas de la BD a objetos Date locales
-  // usando la técnica de parsing manual para evitar el timezone del navegador.
+  // --- PROCESAMIENTO DE ACTIVIDADES CON FIX DE FECHA ---
   const actividadesConFechas = React.useMemo(() => {
     return actividades.map((act) => {
-      let fechaVisual = new Date();
-
-      if (act.fecha_inicio) {
-        // 1. Obtener string ISO original ("2025-12-12...")
-        const fechaString = new Date(act.fecha_inicio)
-          .toISOString()
-          .split("T")[0];
-        // 2. Parsear manualmente [2025, 12, 12]
-        const [anio, mes, dia] = fechaString.split("-").map(Number);
-        // 3. Crear fecha local (Mes es base 0)
-        fechaVisual = new Date(anio, mes - 1, dia);
-      }
+      // AQUÍ OCURRE LA MAGIA:
+      // Ignoramos la hora que viene de la BD y forzamos la fecha a ser local
+      const fechaCorregida = obtenerFechaLocal(act.fecha_inicio);
 
       return {
         ...act,
-        fecha_inicio: fechaVisual, // Usamos esta fecha corregida para todo el componente
+        fecha_inicio: fechaCorregida,
         departamentos: (act.departamentos || []).filter(Boolean) as string[],
       };
     });
   }, [actividades]);
 
+  // Extraemos las fechas para los puntitos del calendario
   const diasConActividad = React.useMemo(() => {
     return actividadesConFechas.map((act) => act.fecha_inicio);
   }, [actividadesConFechas]);
 
+  // Filtramos actividades según selección
   const actividadesMostradas = React.useMemo(() => {
     let filtered: typeof actividadesConFechas;
     if (fecha) {
@@ -140,23 +141,21 @@ export function CronogramaActividades({
         estaEnElMes(act.fecha_inicio, mesMostrado)
       );
     }
+    // Ordenamos por hora (aunque sea 00:00, mantiene orden de creación si hubiera hora)
     return filtered.sort(
       (a, b) => a.fecha_inicio.getTime() - b.fecha_inicio.getTime()
     );
   }, [fecha, mesMostrado, actividadesConFechas]);
 
   const actividadesPendientes = React.useMemo(() => {
-    return actividadesMostradas.filter(
-      (act) =>
-        act.estado === "pendiente" ||
-        act.estado === "en_progreso" ||
-        act.estado === "suspendido"
+    return actividadesMostradas.filter((act) =>
+      ["pendiente", "en_progreso", "suspendido"].includes(act.estado)
     );
   }, [actividadesMostradas]);
 
   const actividadesFinalizadas = React.useMemo(() => {
-    return actividadesMostradas.filter(
-      (act) => act.estado === "completada" || act.estado === "cancelada"
+    return actividadesMostradas.filter((act) =>
+      ["completada", "cancelada"].includes(act.estado)
     );
   }, [actividadesMostradas]);
 
@@ -168,11 +167,6 @@ export function CronogramaActividades({
     setMesMostrado(month);
     setFecha(undefined);
   };
-  React.useEffect(() => {
-    const hoy = new Date();
-    setFecha(hoy);
-    setMesMostrado(hoy);
-  }, []);
 
   const descripcionTitulo = React.useMemo(() => {
     if (fecha) return fecha.toLocaleDateString("es-ES", { dateStyle: "long" });
@@ -182,6 +176,7 @@ export function CronogramaActividades({
     });
   }, [fecha, mesMostrado]);
 
+  // Manejador de cambio de estado
   const handleEstadoChange = (
     actividadId: string,
     titulo: string,
@@ -241,6 +236,7 @@ export function CronogramaActividades({
             {act.titulo}
           </p>
           <p className="text-sm text-muted-foreground">
+            {/* Mostrar fecha solo si estamos viendo el mes completo */}
             {!fecha && (
               <span className="font-medium text-primary">
                 {act.fecha_inicio.toLocaleDateString("es-ES", {
@@ -294,6 +290,7 @@ export function CronogramaActividades({
               />
               <DropdownMenuSeparator />
 
+              {/* Opciones de cambio de estado */}
               {act.estado !== "en_progreso" && act.estado !== "suspendido" && (
                 <DropdownMenuItem
                   disabled={isPending}
