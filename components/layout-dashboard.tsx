@@ -15,6 +15,7 @@ import {
   List,
   CalendarPlus,
   CalendarClock,
+  BookOpen, // <--- 1. IMPORTAMOS EL NUEVO ÍCONO
 } from "lucide-react";
 import {
   SidebarProvider,
@@ -50,7 +51,6 @@ import { Button } from "@/components/ui/button";
 import { cerrarSesion } from "@/app/actions/autenticacion.actions";
 import type { Usuario } from "@/types";
 
-// (Función getInitials sin cambios)
 function getInitials(name: string) {
   return name
     .split(" ")
@@ -59,7 +59,6 @@ function getInitials(name: string) {
     .toUpperCase();
 }
 
-// (Componente MenuCollapsibleTrigger sin cambios)
 function MenuCollapsibleTrigger({
   label,
   icon,
@@ -133,7 +132,7 @@ export function LayoutDashboard({
             <Collapsible asChild>
               <SidebarMenuItem>
                 <MenuCollapsibleTrigger
-                  label="Gestión de actividades" // CORREGIDO
+                  label="Gestión de actividades"
                   tooltip="Actividades"
                   icon={<Calendar className="size-4" />}
                 />
@@ -170,7 +169,7 @@ export function LayoutDashboard({
               <Collapsible asChild>
                 <SidebarMenuItem>
                   <MenuCollapsibleTrigger
-                    label="Gestión de usuarios" // CORREGIDO
+                    label="Gestión de usuarios"
                     tooltip="Usuarios"
                     icon={<Users className="size-4" />}
                   />
@@ -191,7 +190,7 @@ export function LayoutDashboard({
                           className="h-11"
                         >
                           <UserPlus className="size-4" />
-                          <span>Crear usuario</span> {/* CORREGIDO */}
+                          <span>Crear usuario</span>
                         </SidebarMenuSubButton>
                       </SidebarMenuSubItem>
                     </SidebarMenuSub>
@@ -205,12 +204,12 @@ export function LayoutDashboard({
               <SidebarMenuItem>
                 <SidebarMenuButton
                   asChild
-                  tooltip="Mi departamento" // CORREGIDO
+                  tooltip="Mi departamento"
                   className="h-11"
                 >
                   <Link href="/dashboard/mi-departamento">
                     <Users className="size-4" />
-                    <span>Mi departamento</span> {/* CORREGIDO */}
+                    <span>Mi departamento</span>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
@@ -281,9 +280,25 @@ export function LayoutDashboard({
               <DropdownMenuItem asChild>
                 <Link href="/dashboard/perfil">
                   <Settings className="mr-2 size-4" />
-                  <span>Mi perfil</span> {/* CORREGIDO */}
+                  <span>Mi perfil</span>
                 </Link>
               </DropdownMenuItem>
+
+              {/* --- 2. AQUÍ ESTÁ LA NUEVA OPCIÓN --- */}
+              {/* Opción de Manual de Usuario (Para todos) */}
+              <DropdownMenuItem asChild>
+                <a
+                  href="/manual-usuario.pdf"
+                  download="Manual_Usuario_INATUR.pdf"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="cursor-pointer"
+                >
+                  <BookOpen className="mr-2 size-4" />
+                  <span>Manual de usuario</span>
+                </a>
+              </DropdownMenuItem>
+              {/* ---------------------------------- */}
 
               <DropdownMenuSeparator />
               <DropdownMenuItem
@@ -292,8 +307,7 @@ export function LayoutDashboard({
                 className="text-destructive focus:text-destructive"
               >
                 <LogOut className="mr-2 size-4" />
-                <span>{isPending ? "Cerrando..." : "Cerrar sesión"}</span>{" "}
-                {/* CORREGIDO */}
+                <span>{isPending ? "Cerrando..." : "Cerrar sesión"}</span>
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
