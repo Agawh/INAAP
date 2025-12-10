@@ -1,0 +1,16 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/notificaciones?tipo=mismo_dia",
+      "schedule": "0 11 * * *"
+    },
+    {
+      "path": "/api/cron/notificaciones?tipo=semana_antes",
+      "schedule": "0 11 * * *"
+    },
+    {
+      "path": "/api/cron/notificaciones?tipo=dia_antes",
+      "schedule": "0 22 * * *"
+    }
+  ]
+}
