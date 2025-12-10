@@ -19,43 +19,33 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
-import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
+import { PieChart, Pie, Cell, Tooltip } from "recharts";
 import {
   ChartContainer,
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart";
 import {
-  Activity,
   CalendarCheck,
   ClipboardList,
   Loader2,
   MoreVertical,
   CheckCircle2,
   CircleDashed,
-  Undo2,
-  PauseCircle,
 } from "lucide-react";
-import type {
-  DashboardData,
-  DashboardChartData,
-} from "@/services/actividades.service";
+import type { DashboardData } from "@/services/actividades.service";
 import type { ChartConfig } from "@/components/ui/chart";
-// --- ¡CAMBIO! Importamos Rol ---
 import type { EstadoActividad, Rol } from "@/types";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-  DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { accionActualizarEstadoActividad } from "@/app/actions/actividades.actions";
 
-// (Configuración del Gráfico y traducirEstado... SIN CAMBIOS)
 const chartConfig = {
   pendiente: { label: "Pendiente", color: "hsl(var(--chart-2))" },
   en_progreso: { label: "En Progreso", color: "hsl(var(--chart-4))" },
@@ -81,7 +71,6 @@ function traducirEstado(estado: string | EstadoActividad) {
   }
 }
 
-// --- ¡CAMBIO! Nueva prop 'rolUsuario' ---
 export function PanelDeControl({
   data,
   rolUsuario,
@@ -102,14 +91,22 @@ export function PanelDeControl({
     return chartData.reduce((acc, curr) => acc + curr.total, 0);
   }, [chartData]);
 
-  const formatDate = (date: Date) => {
-    return new Date(date).toLocaleDateString("es-ES", {
+  // --- FIX FECHA DASHBOARD ---
+  // Reemplazamos la conversión directa por construcción manual local
+  const formatDate = (date: Date | string) => {
+    // 1. Aseguramos formato ISO String
+    const fechaStr = new Date(date).toISOString().split("T")[0];
+    // 2. Extraemos [Año, Mes, Día]
+    const [anio, mes, dia] = fechaStr.split("-").map(Number);
+    // 3. Creamos fecha local (Mes es base 0 en JS)
+    const fechaVisual = new Date(anio, mes - 1, dia);
+
+    return fechaVisual.toLocaleDateString("es-ES", {
       day: "2-digit",
       month: "long",
     });
   };
 
-  // (handleEstadoChange... SIN CAMBIOS)
   const handleEstadoChange = (
     actividadId: string,
     titulo: string,
@@ -137,12 +134,11 @@ export function PanelDeControl({
     });
   };
 
-  // --- ¡CAMBIO! Determinamos si es solo lectura ---
   const esSoloLectura = rolUsuario === "miembro_departamento";
 
   return (
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-      {/* KPIs (Sin cambios) */}
+      {/* KPIs */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium">Total Mes</CardTitle>
@@ -185,7 +181,6 @@ export function PanelDeControl({
               <TableRow>
                 <TableHead>Actividad</TableHead>
                 <TableHead>Fecha</TableHead>
-                {/* --- ¡CAMBIO! Ocultar columna si es solo lectura --- */}
                 {!esSoloLectura && (
                   <TableHead className="text-right">Acciones</TableHead>
                 )}
@@ -205,8 +200,6 @@ export function PanelDeControl({
                 proximasActividades.map((act) => (
                   <TableRow key={act.id}>
                     <TableCell className="font-medium">
-                      {/* Los miembros pueden ver detalles, pero el link lleva a una pag que debemos proteger o dejar como 'solo lectura' */}
-                      {/* Por ahora lo dejamos como Link, ya que editar estará protegido en el servidor */}
                       <Link
                         href={`/dashboard/actividades/${act.id}`}
                         className="hover:underline"
@@ -214,9 +207,11 @@ export function PanelDeControl({
                         {act.titulo}
                       </Link>
                     </TableCell>
-                    <TableCell>{formatDate(act.fecha_inicio)}</TableCell>
+                    {/* Usamos la función corregida */}
+                    <TableCell className="capitalize">
+                      {formatDate(act.fecha_inicio)}
+                    </TableCell>
 
-                    {/* --- ¡CAMBIO! Ocultar acciones si es solo lectura --- */}
                     {!esSoloLectura && (
                       <TableCell className="text-right">
                         <DropdownMenu modal={false}>
@@ -272,7 +267,7 @@ export function PanelDeControl({
         </CardContent>
       </Card>
 
-      {/* Gráfico (Sin cambios lógicos, solo visual) */}
+      {/* Gráfico */}
       <Card className="lg:col-span-1">
         <CardHeader>
           <CardTitle>Estado (Mes Actual)</CardTitle>
