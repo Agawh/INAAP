@@ -3,7 +3,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { sql } from "@/lib/db";
 import { createTransport } from "nodemailer";
 
-// Configuración de Nodemailer
+export const dynamic = "force-dynamic";
+
+// 1. Configuración de Email
 const transporter = createTransport({
   host: process.env.SMTP_HOST,
   port: Number(process.env.SMTP_PORT),
@@ -14,16 +16,35 @@ const transporter = createTransport({
   },
 });
 
-export const dynamic = "force-dynamic";
+// 2. Helper para enviar a Telegram
+async function enviarTelegram(chatId: string, mensaje: string) {
+  const token = process.env.TELEGRAM_BOT_TOKEN;
+  if (!token || !chatId) return;
 
-// --- FUNCION HELPER PARA PROCESAR CADA TIPO ---
+  try {
+    const url = `https://api.telegram.org/bot${token}/sendMessage`;
+    await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        chat_id: chatId,
+        text: mensaje,
+        parse_mode: "HTML", // Permite negritas y emojis
+      }),
+    });
+  } catch (error) {
+    console.error(`Error enviando Telegram a ${chatId}:`, error);
+  }
+}
+
+// 3. Procesador principal
 async function procesarNotificacion(
   tipoReal: string,
   fechaBusqueda: string,
   asuntoPrefix: string,
   destinatarios: any[]
 ) {
-  // 1. Buscar actividades
+  // Buscar actividades para la fecha
   const res = await sql(
     "SELECT * FROM actividades WHERE fecha_inicio = $1 AND estado != 'cancelada' AND estado != 'suspendido'",
     [fechaBusqueda]
@@ -33,9 +54,11 @@ async function procesarNotificacion(
   if (actividades.length === 0)
     return { tipo: tipoReal, estado: "sin_actividades", cantidad: 0 };
 
-  // 2. Enviar correos
-  const emailPromises = actividades.map(async (actividad: any) => {
-    const htmlContent = `
+  // Iterar sobre cada actividad encontrada
+  const promesasEnvio = actividades.map(async (actividad: any) => {
+    // --- Preparar Mensajes ---
+    // A. Cuerpo HTML para Correo
+    const htmlEmail = `
       <div style="font-family: Arial, sans-serif; color: #333;">
         <h2 style="color: #0056b3;">${asuntoPrefix} ${actividad.titulo}</h2>
         <p><strong>Tipo:</strong> <span style="text-transform: capitalize;">${
@@ -47,29 +70,49 @@ async function procesarNotificacion(
           actividad.descripcion || "Sin descripción"
         }</p>
         <hr/>
-        <p style="font-size: 12px; color: #666;">Sistema de Gestión INATUR Táchira - Notificación Automática</p>
+        <p style="font-size: 12px; color: #666;">Sistema de Gestión INATUR Táchira</p>
       </div>
     `;
 
-    const listaCorreos = destinatarios.map((u: any) => u.email).join(", ");
+    // B. Texto para Telegram (con formato HTML simple)
+    const textoTelegram = `
+<b>${asuntoPrefix} ${actividad.titulo}</b>
+📅 <b>Fecha:</b> ${actividad.fecha_inicio}
+XR <b>Tipo:</b> ${actividad.tipo}
+ℹ️ <b>Estado:</b> ${actividad.estado}
 
-    try {
-      await transporter.sendMail({
-        from:
-          process.env.SMTP_FROM || '"Sistema INATUR" <no-reply@inatur.gob.ve>',
-        to: process.env.SMTP_USER,
-        bcc: listaCorreos,
-        subject: `${asuntoPrefix}${actividad.titulo}`,
-        html: htmlContent,
-      });
-      return { id: actividad.id, status: "enviado" };
-    } catch (error) {
-      console.error(`Error enviando correo actividad ${actividad.id}:`, error);
-      return { id: actividad.id, status: "error" };
-    }
+${actividad.descripcion || "Sin descripción."}
+    `.trim();
+
+    // --- Enviar a cada usuario según su configuración ---
+    const enviosUsuario = destinatarios.map(async (usuario: any) => {
+      // 1. Enviar Email si está habilitado
+      if (usuario.email_habilitado && usuario.email) {
+        try {
+          await transporter.sendMail({
+            from:
+              process.env.SMTP_FROM ||
+              '"Sistema INATUR" <no-reply@inatur.gob.ve>',
+            to: usuario.email,
+            subject: `${asuntoPrefix}${actividad.titulo}`,
+            html: htmlEmail,
+          });
+        } catch (e) {
+          console.error("Fallo email", e);
+        }
+      }
+
+      // 2. Enviar Telegram si está habilitado y tiene Chat ID
+      if (usuario.telegram_habilitado && usuario.telegram_chat_id) {
+        await enviarTelegram(usuario.telegram_chat_id, textoTelegram);
+      }
+    });
+
+    await Promise.all(enviosUsuario);
+    return { id: actividad.id, status: "procesado" };
   });
 
-  await Promise.all(emailPromises);
+  await Promise.all(promesasEnvio);
   return { tipo: tipoReal, estado: "procesado", cantidad: actividades.length };
 }
 
@@ -78,9 +121,8 @@ export async function GET(req: NextRequest) {
   const token = searchParams.get("token");
   const tipoParam = searchParams.get("tipo");
 
+  // Validación básica
   const CRON_SECRET = process.env.CRON_SECRET || "INATUR_CRON_SECRET";
-
-  // Validación laxa para pruebas manuales
   if (
     token !== CRON_SECRET &&
     req.headers.get("authorization") !== `Bearer ${process.env.CRON_SECRET}`
@@ -89,20 +131,24 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    // 1. Obtener Destinatarios (Una sola vez para optimizar)
+    // 1. Obtener Usuarios y sus preferencias (Email Y Telegram)
     const resUsuarios = await sql(
-      `SELECT u.email 
+      `SELECT 
+          u.email, 
+          u.telegram_chat_id,
+          c.email_habilitado, 
+          c.telegram_habilitado
        FROM usuarios u
        JOIN configuracion_notificaciones c ON u.id = c.usuario_id
-       WHERE c.email_habilitado = true AND u.activo = true`
+       WHERE u.activo = true AND (c.email_habilitado = true OR c.telegram_habilitado = true)`
     );
     const destinatarios = resUsuarios.rows;
 
     if (destinatarios.length === 0) {
-      return NextResponse.json({ message: "No hay usuarios suscritos" });
+      return NextResponse.json({ message: "No hay usuarios para notificar" });
     }
 
-    // 2. Calcular Fechas (Hora Vzla)
+    // 2. Calcular Fechas (Hora Vzla - Strings exactos)
     const hoy = new Date();
     const fechaHoy = hoy.toLocaleDateString("en-CA", {
       timeZone: "America/Caracas",
@@ -122,8 +168,7 @@ export async function GET(req: NextRequest) {
 
     const resultados = [];
 
-    // 3. Orquestador de Tareas
-    // Si es "turno_manana", ejecutamos MISMO DÍA y SEMANA ANTES
+    // 3. Ejecución
     if (tipoParam === "turno_manana" || tipoParam === "mismo_dia") {
       resultados.push(
         await procesarNotificacion(
@@ -134,19 +179,16 @@ export async function GET(req: NextRequest) {
         )
       );
     }
-
     if (tipoParam === "turno_manana" || tipoParam === "semana_antes") {
       resultados.push(
         await procesarNotificacion(
           "semana_antes",
           fechaSemana,
-          "📅 PRÓXIMAMENTE (7 días): ",
+          "📅 PRÓXIMAMENTE: ",
           destinatarios
         )
       );
     }
-
-    // Si es "turno_tarde", ejecutamos DÍA ANTES
     if (tipoParam === "turno_tarde" || tipoParam === "dia_antes") {
       resultados.push(
         await procesarNotificacion(
@@ -164,7 +206,7 @@ export async function GET(req: NextRequest) {
       resultados,
     });
   } catch (error: any) {
-    console.error("Error en CRON:", error);
+    console.error("Error CRON:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
