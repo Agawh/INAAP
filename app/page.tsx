@@ -3,12 +3,13 @@
 
 import * as React from "react";
 import Image from "next/image";
+import Link from "next/link"; // Importamos Link
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { motion, type Variants } from "framer-motion";
-import { Loader2, Lock, Mail, ArrowRight } from "lucide-react";
+import { Loader2, Lock, Mail, ArrowRight, Github } from "lucide-react"; // Importamos Github
 
 import { Button } from "@/components/ui/button";
 import {
@@ -61,7 +62,6 @@ export default function LoginPage() {
       const resultado = await iniciarSesion(formData);
 
       if (resultado?.success) {
-        // --- ÉXITO ---
         toast({
           title: "Acceso autorizado",
           description: "Redirigiendo al panel de control...",
@@ -73,28 +73,21 @@ export default function LoginPage() {
         return;
       }
 
-      // --- ERROR DE CREDENCIALES (Estilo Mejorado) ---
       if (resultado && !resultado.success) {
         toast({
-          // Quitamos 'variant: destructive' para usar nuestro propio estilo limpio
           title: "Credenciales no válidas",
-          description:
-            "El correo o la contraseña son incorrectos. Por favor, verifica e intenta de nuevo.",
-          className: "border-l-4 border-red-500 bg-white dark:bg-slate-900", // Fondo blanco, borde rojo
+          description: "El correo o la contraseña son incorrectos.",
+          className: "border-l-4 border-red-500 bg-white dark:bg-slate-900",
         });
       }
     } catch (error) {
-      // --- ERROR DE CONEXIÓN ---
       toast({
         variant: "destructive",
         title: "Error de conexión",
         description: "No se pudo contactar con el servidor.",
       });
     } finally {
-      if (!isLoading) setIsLoading(false);
-      else {
-        setIsLoading(false);
-      }
+      setIsLoading(false);
     }
   }
 
@@ -129,9 +122,9 @@ export default function LoginPage() {
         initial="hidden"
         animate="visible"
         variants={fadeIn}
-        className="relative z-10 w-full max-w-md"
+        className="relative z-10 w-full max-w-md flex flex-col items-center"
       >
-        <Card className="border-none shadow-2xl bg-white/95 backdrop-blur-sm dark:bg-card">
+        <Card className="border-none shadow-2xl bg-white/95 backdrop-blur-sm dark:bg-card w-full">
           <CardHeader className="space-y-4 pb-6 text-center">
             <motion.div
               initial={{ scale: 0.9, opacity: 0 }}
@@ -235,9 +228,27 @@ export default function LoginPage() {
           <div className="h-1.5 w-full bg-[#d4af37] rounded-b-xl" />
         </Card>
 
-        <p className="mt-6 text-center text-xs text-white/80 font-medium drop-shadow-md">
-          Sistema de Gestión de Actividades - INATUR Táchira
-        </p>
+        {/* --- PIE DE PÁGINA PROFESIONAL --- */}
+        <div className="mt-8 text-center space-y-2">
+          <p className="text-xs text-white/70 font-light tracking-wide">
+            Sistema de Registro de Actividades y Cronogramas Turísticos
+          </p>
+          <div className="flex items-center justify-center gap-2 text-xs text-white/50">
+            <span>INATUR Táchira</span>
+            <span>•</span>
+            <Link
+              href="https://github.com/Agawh"
+              target="_blank"
+              className="flex items-center gap-1 hover:text-white transition-colors group"
+            >
+              <span>Desarrollado por</span>
+              <span className="font-semibold text-white/80 group-hover:text-white">
+                Agawh
+              </span>
+              <Github className="h-3 w-3" />
+            </Link>
+          </div>
+        </div>
       </motion.div>
     </div>
   );
