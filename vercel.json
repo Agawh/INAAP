@@ -1,15 +1,11 @@
 {
   "crons": [
     {
-      "path": "/api/cron/notificaciones?tipo=mismo_dia",
+      "path": "/api/cron/notificaciones?tipo=turno_manana",
       "schedule": "0 11 * * *"
     },
     {
-      "path": "/api/cron/notificaciones?tipo=semana_antes",
-      "schedule": "0 11 * * *"
-    },
-    {
-      "path": "/api/cron/notificaciones?tipo=dia_antes",
+      "path": "/api/cron/notificaciones?tipo=turno_tarde",
       "schedule": "0 22 * * *"
     }
   ]
