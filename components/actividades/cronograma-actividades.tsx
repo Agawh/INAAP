@@ -40,18 +40,19 @@ import { accionActualizarEstadoActividad } from "@/app/actions/actividades.actio
 import { useToast } from "@/hooks/use-toast";
 import { Separator } from "@/components/ui/separator";
 
-// --- FUNCIONES AUXILIARES DE FECHA (FIX LOCAL) ---
+// --- HELPERS DE FECHA ---
+// Ahora 'fecha' viene como string "YYYY-MM-DD" gracias al fix de db.ts
+function parsearFechaLocal(fechaStr: string | Date): Date {
+  // Si por alguna razón sigue llegando Date, lo convertimos a ISO string
+  const fechaPura =
+    fechaStr instanceof Date
+      ? fechaStr.toISOString().split("T")[0]
+      : String(fechaStr); // Asumimos formato "2025-12-12"
 
-// Función mágica: Convierte cualquier fecha UTC/ISO a medianoche LOCAL exacta
-const obtenerFechaLocal = (fechaInput: string | Date) => {
-  // 1. Convertimos a objeto Date para asegurar
-  const dateObj = new Date(fechaInput);
-  // 2. Obtenemos el string ISO ("2025-12-12T...") y cortamos la parte de la fecha ("2025-12-12")
-  const yyyymmdd = dateObj.toISOString().split("T")[0];
-  // 3. Creamos una nueva fecha agregando T00:00:00 SIN la 'Z'.
-  // Al no tener 'Z', el navegador asume que es la hora local del usuario.
-  return new Date(`${yyyymmdd}T00:00:00`);
-};
+  // TRUCO FINAL: Agregamos T00:00:00 sin 'Z'.
+  // Esto obliga al navegador a crear la fecha a las 00:00 TU HORA LOCAL.
+  return new Date(`${fechaPura}T00:00:00`);
+}
 
 function esElMismoDia(fecha1: Date, fecha2: Date) {
   return (
@@ -98,24 +99,19 @@ export function CronogramaActividades({
 }: CronogramaProps) {
   const { toast } = useToast();
   const [isPending, startTransition] = useTransition();
-
-  // Inicializamos con la fecha local de hoy
   const [fecha, setFecha] = React.useState<Date | undefined>(new Date());
   const [mesMostrado, setMesMostrado] = React.useState<Date>(new Date());
-
   const esSoloLectura = rolUsuario === "miembro_departamento";
 
   const deptMap = React.useMemo(() => {
     return new Map(departamentos.map((d) => [d.id, d.nombre]));
   }, [departamentos]);
 
-  // --- PROCESAMIENTO DE ACTIVIDADES CON FIX DE FECHA ---
+  // --- PROCESAMIENTO DE ACTIVIDADES ---
   const actividadesConFechas = React.useMemo(() => {
     return actividades.map((act) => {
-      // AQUÍ OCURRE LA MAGIA:
-      // Ignoramos la hora que viene de la BD y forzamos la fecha a ser local
-      const fechaCorregida = obtenerFechaLocal(act.fecha_inicio);
-
+      // Aplicamos el parseo local a cada actividad
+      const fechaCorregida = parsearFechaLocal(act.fecha_inicio);
       return {
         ...act,
         fecha_inicio: fechaCorregida,
@@ -124,14 +120,12 @@ export function CronogramaActividades({
     });
   }, [actividades]);
 
-  // Extraemos las fechas para los puntitos del calendario
   const diasConActividad = React.useMemo(() => {
     return actividadesConFechas.map((act) => act.fecha_inicio);
   }, [actividadesConFechas]);
 
-  // Filtramos actividades según selección
   const actividadesMostradas = React.useMemo(() => {
-    let filtered: typeof actividadesConFechas;
+    let filtered;
     if (fecha) {
       filtered = actividadesConFechas.filter((act) =>
         esElMismoDia(act.fecha_inicio, fecha)
@@ -141,23 +135,17 @@ export function CronogramaActividades({
         estaEnElMes(act.fecha_inicio, mesMostrado)
       );
     }
-    // Ordenamos por hora (aunque sea 00:00, mantiene orden de creación si hubiera hora)
     return filtered.sort(
       (a, b) => a.fecha_inicio.getTime() - b.fecha_inicio.getTime()
     );
   }, [fecha, mesMostrado, actividadesConFechas]);
 
-  const actividadesPendientes = React.useMemo(() => {
-    return actividadesMostradas.filter((act) =>
-      ["pendiente", "en_progreso", "suspendido"].includes(act.estado)
-    );
-  }, [actividadesMostradas]);
-
-  const actividadesFinalizadas = React.useMemo(() => {
-    return actividadesMostradas.filter((act) =>
-      ["completada", "cancelada"].includes(act.estado)
-    );
-  }, [actividadesMostradas]);
+  const actividadesPendientes = actividadesMostradas.filter((act) =>
+    ["pendiente", "en_progreso", "suspendido"].includes(act.estado)
+  );
+  const actividadesFinalizadas = actividadesMostradas.filter((act) =>
+    ["completada", "cancelada"].includes(act.estado)
+  );
 
   const handleSelectFecha = (dia: Date | undefined) => {
     setFecha(dia);
@@ -168,6 +156,11 @@ export function CronogramaActividades({
     setFecha(undefined);
   };
 
+  React.useEffect(() => {
+    // Al cargar, seleccionamos hoy
+    setFecha(new Date());
+  }, []);
+
   const descripcionTitulo = React.useMemo(() => {
     if (fecha) return fecha.toLocaleDateString("es-ES", { dateStyle: "long" });
     return mesMostrado.toLocaleDateString("es-ES", {
@@ -176,35 +169,31 @@ export function CronogramaActividades({
     });
   }, [fecha, mesMostrado]);
 
-  // Manejador de cambio de estado
   const handleEstadoChange = (
-    actividadId: string,
+    id: string,
     titulo: string,
-    nuevoEstado: EstadoActividad
+    estado: EstadoActividad
   ) => {
     startTransition(async () => {
-      const resultado = await accionActualizarEstadoActividad(
-        actividadId,
-        nuevoEstado
-      );
-      if (resultado.success && resultado.nuevoEstado) {
+      const res = await accionActualizarEstadoActividad(id, estado);
+      if (res.success) {
         toast({
-          title: `¡Actualizado!`,
-          description: `La actividad "${titulo}" se marcó como "${traducirEstado(
-            resultado.nuevoEstado
-          )}".`,
+          title: "Actualizado",
+          description: `"${titulo}" ahora está ${traducirEstado(
+            res.nuevoEstado || estado
+          )}`,
         });
       } else {
         toast({
-          title: "Error al actualizar",
-          description: resultado.message,
+          title: "Error",
+          description: res.message,
           variant: "destructive",
         });
       }
     });
   };
 
-  const renderActividadItem = (act: (typeof actividadesConFechas)[number]) => {
+  const renderActividadItem = (act: (typeof actividadesConFechas)[0]) => {
     const primerDeptoId = act.departamentos[0];
     const nombrePrimerDepto = deptMap.get(primerDeptoId);
     const numDeptosExtra = act.departamentos.length - 1;
@@ -221,8 +210,7 @@ export function CronogramaActividades({
       <div
         key={act.id}
         className={cn(
-          "flex items-start gap-3 rounded-lg border p-3 transition-colors",
-          "border-l-4",
+          "flex items-start gap-3 rounded-lg border p-3 transition-colors border-l-4",
           estadoClasses
         )}
       >
@@ -236,7 +224,7 @@ export function CronogramaActividades({
             {act.titulo}
           </p>
           <p className="text-sm text-muted-foreground">
-            {/* Mostrar fecha solo si estamos viendo el mes completo */}
+            {/* Mostrar fecha si vemos el mes completo */}
             {!fecha && (
               <span className="font-medium text-primary">
                 {act.fecha_inicio.toLocaleDateString("es-ES", {
@@ -259,100 +247,47 @@ export function CronogramaActividades({
             )}
           </div>
         </div>
-
         {!esSoloLectura && (
           <DropdownMenu modal={false}>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="shrink-0">
+              <Button variant="ghost" size="icon" className="shrink-0 h-8 w-8">
                 <MoreVertical className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              {act.estado === "suspendido" ? (
-                <DropdownMenuItem asChild className="text-primary font-medium">
-                  <Link href={`/dashboard/actividades/${act.id}`}>
-                    <CalendarClock className="mr-2 h-4 w-4" />
-                    Reprogramar Actividad
-                  </Link>
-                </DropdownMenuItem>
-              ) : (
-                <DropdownMenuItem asChild>
-                  <Link href={`/dashboard/actividades/${act.id}`}>
-                    <Edit className="mr-2 h-4 w-4" />
-                    Editar Actividad
-                  </Link>
-                </DropdownMenuItem>
-              )}
-
+              <DropdownMenuItem asChild>
+                <Link href={`/dashboard/actividades/${act.id}`}>
+                  <Edit className="mr-2 h-4 w-4" /> Editar
+                </Link>
+              </DropdownMenuItem>
               <BotonEliminarActividad
                 actividadId={act.id}
                 tituloActividad={act.titulo}
               />
               <DropdownMenuSeparator />
-
-              {/* Opciones de cambio de estado */}
-              {act.estado !== "en_progreso" && act.estado !== "suspendido" && (
-                <DropdownMenuItem
-                  disabled={isPending}
-                  onSelect={() =>
-                    handleEstadoChange(act.id, act.titulo, "en_progreso")
-                  }
-                >
-                  {isPending ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  ) : (
-                    <CircleDashed className="mr-2 h-4 w-4" />
-                  )}{" "}
-                  Marcar "En Progreso"
-                </DropdownMenuItem>
-              )}
-              {act.estado !== "completada" && act.estado !== "suspendido" && (
-                <DropdownMenuItem
-                  disabled={isPending}
-                  onSelect={() =>
-                    handleEstadoChange(act.id, act.titulo, "completada")
-                  }
-                >
-                  {isPending ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  ) : (
-                    <CheckCircle2 className="mr-2 h-4 w-4" />
-                  )}{" "}
-                  Marcar "Completada"
-                </DropdownMenuItem>
-              )}
-              {act.estado !== "suspendido" &&
-                act.estado !== "completada" &&
-                act.estado !== "cancelada" && (
-                  <DropdownMenuItem
-                    disabled={isPending}
-                    onSelect={() =>
-                      handleEstadoChange(act.id, act.titulo, "suspendido")
-                    }
-                    className="text-orange-600 focus:text-orange-700"
-                  >
-                    {isPending ? (
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    ) : (
-                      <PauseCircle className="mr-2 h-4 w-4" />
-                    )}{" "}
-                    Suspender Actividad
-                  </DropdownMenuItem>
-                )}
-              {act.estado !== "pendiente" && (
-                <DropdownMenuItem
-                  disabled={isPending}
-                  onSelect={() =>
-                    handleEstadoChange(act.id, act.titulo, "pendiente")
-                  }
-                >
-                  {isPending ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  ) : (
-                    <Undo2 className="mr-2 h-4 w-4" />
-                  )}{" "}
-                  Revertir a "Pendiente"
-                </DropdownMenuItem>
+              {/* Opciones de estado simplificadas */}
+              {["en_progreso", "completada", "suspendido", "pendiente"].map(
+                (est) =>
+                  est !== act.estado && (
+                    <DropdownMenuItem
+                      key={est}
+                      disabled={isPending}
+                      onSelect={() =>
+                        handleEstadoChange(
+                          act.id,
+                          act.titulo,
+                          est as EstadoActividad
+                        )
+                      }
+                    >
+                      {isPending ? (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      ) : (
+                        <CircleDashed className="mr-2 h-4 w-4" />
+                      )}
+                      Marcar "{traducirEstado(est)}"
+                    </DropdownMenuItem>
+                  )
               )}
             </DropdownMenuContent>
           </DropdownMenu>
@@ -372,8 +307,7 @@ export function CronogramaActividades({
               onSelect={handleSelectFecha}
               month={mesMostrado}
               onMonthChange={handleMonthChange}
-              className=""
-              modifiers={{ diasConActividad: diasConActividad }}
+              modifiers={{ diasConActividad }}
               modifiersClassNames={{
                 diasConActividad:
                   "bg-primary/20 text-primary-foreground rounded-full",
@@ -407,7 +341,7 @@ export function CronogramaActividades({
                 {actividadesPendientes.length === 0 &&
                 actividadesFinalizadas.length === 0 ? (
                   <p className="py-8 text-center text-sm text-muted-foreground">
-                    No hay actividades para {fecha ? "este día" : "este mes"}.
+                    No hay actividades.
                   </p>
                 ) : (
                   <>
@@ -415,7 +349,7 @@ export function CronogramaActividades({
                       <div className="flex flex-col gap-4">
                         <div className="flex items-center gap-2">
                           <span className="text-xs font-semibold uppercase text-muted-foreground">
-                            Pendientes y Suspendidas
+                            Pendientes
                           </span>
                           <Separator className="flex-1" />
                         </div>

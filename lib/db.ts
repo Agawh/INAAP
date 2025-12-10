@@ -1,5 +1,11 @@
 // /lib/db.ts
-import { Pool, type QueryResult, type QueryResultRow } from "pg";
+import { Pool, types, type QueryResult, type QueryResultRow } from "pg";
+
+// --- FIX DEFINITIVO DE FECHAS (CRÍTICO) ---
+// El OID 1082 es el tipo DATE en Postgres.
+// Le decimos al driver: "Devuelve la fecha como texto plano (YYYY-MM-DD), no la conviertas a Date".
+// Esto evita que el servidor aplique zonas horarias incorrectas.
+types.setTypeParser(1082, (str) => str);
 
 if (!process.env.DATABASE_URL) {
   throw new Error("DATABASE_URL no está definida en las variables de entorno");
@@ -7,13 +13,17 @@ if (!process.env.DATABASE_URL) {
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
+  // Configuración SSL recomendada para Neon/Vercel
+  ssl: {
+    rejectUnauthorized: false,
+  },
 });
 
 pool.on("error", (err) => {
   console.error("[v0] Error en pool de conexiones:", err);
 });
 
-// --- CAMBIO: Añadimos <T> para permitir tipado fuerte en las respuestas ---
+// --- Función SQL base (Devuelve el objeto completo QueryResult) ---
 export async function sql<T extends QueryResultRow = any>(
   query: string,
   params?: any[]
@@ -21,12 +31,13 @@ export async function sql<T extends QueryResultRow = any>(
   return pool.query<T>(query, params);
 }
 
+// --- Helper para obtener array de filas directamente ---
 export async function executeQuery<T extends QueryResultRow>(
   query: string,
   params?: any[]
 ): Promise<T[]> {
   try {
-    console.log("[v0] Ejecutando query:", query.substring(0, 50) + "...");
+    // console.log("[v0] Ejecutando query:", query.substring(0, 50) + "...");
     const result = await pool.query<T>(query, params);
     return result.rows;
   } catch (error) {
@@ -35,6 +46,7 @@ export async function executeQuery<T extends QueryResultRow>(
   }
 }
 
+// --- Helper para obtener una sola fila (o null) ---
 export async function executeQuerySingle<T extends QueryResultRow>(
   query: string,
   params?: any[]
@@ -43,6 +55,7 @@ export async function executeQuerySingle<T extends QueryResultRow>(
   return results.length > 0 ? results[0] : null;
 }
 
+// --- Helper para probar conexión ---
 export async function testConnection(): Promise<boolean> {
   try {
     const result = await pool.query("SELECT NOW()");
