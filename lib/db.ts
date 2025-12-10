@@ -4,19 +4,24 @@ import { Pool, types, type QueryResult, type QueryResultRow } from "pg";
 // --- FIX DEFINITIVO DE FECHAS (CRÍTICO) ---
 // El OID 1082 es el tipo DATE en Postgres.
 // Le decimos al driver: "Devuelve la fecha como texto plano (YYYY-MM-DD), no la conviertas a Date".
-// Esto evita que el servidor aplique zonas horarias incorrectas.
 types.setTypeParser(1082, (str) => str);
 
 if (!process.env.DATABASE_URL) {
   throw new Error("DATABASE_URL no está definida en las variables de entorno");
 }
 
+// --- DETECCIÓN INTELIGENTE DE ENTORNO ---
+// Verificamos si la URL apunta a un entorno local
+const isLocal =
+  process.env.DATABASE_URL.includes("localhost") ||
+  process.env.DATABASE_URL.includes("127.0.0.1");
+
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  // Configuración SSL recomendada para Neon/Vercel
-  ssl: {
-    rejectUnauthorized: false,
-  },
+  // LÓGICA HÍBRIDA:
+  // - Si es local: 'undefined' (Desactiva SSL y evita el error "server does not support SSL")
+  // - Si es producción (Neon): '{ rejectUnauthorized: false }' (Activa SSL obligatorio)
+  ssl: isLocal ? undefined : { rejectUnauthorized: false },
 });
 
 pool.on("error", (err) => {
@@ -37,7 +42,6 @@ export async function executeQuery<T extends QueryResultRow>(
   params?: any[]
 ): Promise<T[]> {
   try {
-    // console.log("[v0] Ejecutando query:", query.substring(0, 50) + "...");
     const result = await pool.query<T>(query, params);
     return result.rows;
   } catch (error) {
