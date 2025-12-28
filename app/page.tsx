@@ -234,7 +234,7 @@ export default function LoginPage() {
             Sistema de registro de actividades y cronogramas turísticos
           </p>
           <div className="flex items-center justify-center gap-2 text-xs text-white/50">
-            <span>INATUR Táchira</span>
+            <span>INAAP</span>
             <span>•</span>
             <Link
               href="https://github.com/Agawh"

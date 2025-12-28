@@ -5,7 +5,7 @@ import { z } from "zod";
 import { sql } from "@/lib/db";
 import { verifyPassword } from "@/lib/auth";
 import type { Usuario } from "@/types";
-// --- ¡IMPORTACIÓN CORREGIDA! ---
+
 import { UsuariosService } from "@/services/usuarios.service";
 
 const loginSchema = z.object({
@@ -21,8 +21,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           const parsedCredentials = loginSchema.parse(credentials);
           const { email, password } = parsedCredentials;
 
-          // --- ¡LÓGICA CORREGIDA! ---
-          // 1. Buscamos solo el hash y el estado
           const result = await sql(
             `SELECT password_hash, activo FROM usuarios WHERE email = $1`,
             [email]
