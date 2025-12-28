@@ -85,7 +85,7 @@ export function FormularioCrearActividad({
             </Alert>
           )}
           <div className="grid gap-2 md:col-span-2">
-            <Label htmlFor="titulo">Título de la Actividad</Label>
+            <Label htmlFor="titulo">Título de la actividad</Label>
             <Input
               id="titulo"
               name="titulo"
@@ -98,7 +98,7 @@ export function FormularioCrearActividad({
             )}
           </div>
           <div className="grid gap-2">
-            <Label htmlFor="tipo">Tipo de Actividad</Label>
+            <Label htmlFor="tipo">Tipo de actividad</Label>
             <RadioGroup
               name="tipo"
               className="flex gap-4"
@@ -121,7 +121,7 @@ export function FormularioCrearActividad({
             )}
           </div>
           <div className="grid gap-2">
-            <Label htmlFor="fecha_inicio">Fecha de Inicio</Label>
+            <Label htmlFor="fecha_inicio">Fecha de inicio</Label>
             <Input
               id="fecha_inicio"
               name="fecha_inicio"
@@ -151,7 +151,7 @@ export function FormularioCrearActividad({
           </div>
 
           <div className="grid gap-2 md:col-span-2">
-            <Label>Departamentos Involucrados</Label>
+            <Label>Departamentos involucrados</Label>
 
             {esSuperusuario && (
               <ScrollArea className="h-[150px] w-full rounded-md border p-4">
@@ -195,7 +195,7 @@ export function FormularioCrearActividad({
             {!esSuperusuario && !esJefeDeDepartamento && (
               <Alert variant="destructive">
                 <AlertTriangle className="h-4 w-4" />
-                <AlertTitle>Error de Permisos</AlertTitle>
+                <AlertTitle>Error de permisos</AlertTitle>
                 <AlertDescription>
                   No tienes un departamento asignado. No puedes crear
                   actividades.

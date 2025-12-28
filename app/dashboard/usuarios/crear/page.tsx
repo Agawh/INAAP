@@ -13,7 +13,7 @@ export default async function CrearUsuarioPage() {
     return (
       <Alert variant="destructive">
         <AlertTriangle className="h-4 w-4" />
-        <AlertTitle>Acceso Denegado</AlertTitle>
+        <AlertTitle>Acceso denegado</AlertTitle>
         <AlertDescription>
           No tienes permisos para acceder a esta sección.
         </AlertDescription>
