@@ -15,7 +15,8 @@ import {
   List,
   CalendarPlus,
   CalendarClock,
-  BookOpen, // <--- 1. IMPORTAMOS EL NUEVO ÍCONO
+  BookOpen,
+  FileText, // <--- 1. NUEVO ICONO IMPORTADO
 } from "lucide-react";
 import {
   SidebarProvider,
@@ -105,6 +106,7 @@ export function LayoutDashboard({
         <SidebarRail />
         <SidebarHeader>
           <div className="flex h-14 items-center justify-center">
+            {/* Asegúrate que esta imagen exista en /public o cambia el src */}
             <img
               src="/Inaturlogo.png"
               alt="Logo INATUR"
@@ -215,6 +217,17 @@ export function LayoutDashboard({
               </SidebarMenuItem>
             )}
 
+            {/* --- 2. AQUÍ AGREGAMOS LA NUEVA OPCIÓN REPORTES --- */}
+            <SidebarMenuItem>
+              <SidebarMenuButton asChild tooltip="Reportes" className="h-11">
+                <Link href="/dashboard/reportes">
+                  <FileText className="size-4" />
+                  <span>Reportes</span>
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+            {/* -------------------------------------------------- */}
+
             {/* Configuración */}
             {usuario.rol === "superusuario" && (
               <SidebarMenuItem>
@@ -284,8 +297,6 @@ export function LayoutDashboard({
                 </Link>
               </DropdownMenuItem>
 
-              {/* --- 2. AQUÍ ESTÁ LA NUEVA OPCIÓN --- */}
-              {/* Opción de Manual de Usuario (Para todos) */}
               <DropdownMenuItem asChild>
                 <a
                   href="/manual-usuario.pdf"
@@ -298,7 +309,6 @@ export function LayoutDashboard({
                   <span>Manual de usuario</span>
                 </a>
               </DropdownMenuItem>
-              {/* ---------------------------------- */}
 
               <DropdownMenuSeparator />
               <DropdownMenuItem

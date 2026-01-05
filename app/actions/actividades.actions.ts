@@ -1,4 +1,3 @@
-// /app/actions/actividades.actions.ts
 "use server";
 
 import { z } from "zod";
@@ -6,7 +5,8 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
 import { ActividadesService } from "@/services/actividades.service";
-import { sql } from "@/lib/db";
+import { sql } from "@/lib/db"; // Usamos 'sql' que ya tenías configurado
+import { DepartamentosService } from "@/services/departamentos.service"; // <--- NUEVO IMPORT
 import type {
   TipoActividad,
   CrearActividadDTO,
@@ -21,11 +21,10 @@ export type EstadoFormularioActividad = {
   errores?: Record<string, string[] | undefined>;
 };
 
-// Usaremos el mismo esquema para crear y editar
+// Esquema de validación
 const schemaEditarActividad = z.object({
   titulo: z.string().min(3, "El título debe tener al menos 3 caracteres"),
   descripcion: z.string().optional(),
-  // Validamos como string YYYY-MM-DD
   fecha_inicio: z
     .string()
     .min(10, "La fecha de inicio es requerida.")
@@ -42,7 +41,9 @@ const schemaEditarActividad = z.object({
     .min(1, "Debe seleccionar al menos un departamento."),
 });
 
-// --- ACCIÓN CREAR ---
+// ==========================================
+// 1. ACCIÓN CREAR ACTIVIDAD
+// ==========================================
 export async function accionCrearActividad(
   estadoPrevio: EstadoFormularioActividad,
   formData: FormData
@@ -57,7 +58,7 @@ export async function accionCrearActividad(
   const idUsuarioLogueado = session.user.id;
   const rolUsuario = session.user.rol as Rol;
 
-  // Lógica de permisos original
+  // Lógica de permisos
   if (rolUsuario === "jefe_departamento") {
     const idDeptoUsuario = (
       await UsuariosService.obtenerUsuarioPorId(idUsuarioLogueado)
@@ -100,13 +101,12 @@ export async function accionCrearActividad(
   const { titulo, descripcion, fecha_inicio, tipo, departamento_ids } =
     datosValidados.data;
 
-  // --- CORRECCIÓN FECHA: Estrategia del Mediodía ---
+  // Estrategia del Mediodía para evitar problemas de zona horaria
   const fechaSegura = new Date(`${fecha_inicio}T12:00:00Z`);
 
   const dto: CrearActividadDTO = {
     titulo,
     descripcion: descripcion || undefined,
-    // FIX AQUÍ: Convertimos a String ISO para satisfacer el tipo DTO
     fecha_inicio: fechaSegura.toISOString(),
     tipo: tipo as TipoActividad,
     departamento_ids,
@@ -125,7 +125,9 @@ export async function accionCrearActividad(
   redirect("/dashboard/actividades");
 }
 
-// --- ACCIÓN ELIMINAR ---
+// ==========================================
+// 2. ACCIÓN ELIMINAR ACTIVIDAD
+// ==========================================
 export async function accionEliminarActividad(
   actividadId: string
 ): Promise<{ success: boolean; message: string }> {
@@ -174,7 +176,9 @@ export async function accionEliminarActividad(
   }
 }
 
-// --- ACCIÓN ACTUALIZAR ESTADO ---
+// ==========================================
+// 3. ACCIÓN ACTUALIZAR ESTADO
+// ==========================================
 const schemaActualizarEstado = z.object({
   actividadId: z.string().uuid(),
   nuevoEstado: z.enum([
@@ -249,7 +253,9 @@ export async function accionActualizarEstadoActividad(
   }
 }
 
-// --- ACCIÓN EDITAR ---
+// ==========================================
+// 4. ACCIÓN EDITAR ACTIVIDAD
+// ==========================================
 export async function accionEditarActividad(
   actividadId: string,
   estadoPrevio: EstadoFormularioActividad,
@@ -315,7 +321,6 @@ export async function accionEditarActividad(
   const { titulo, descripcion, fecha_inicio, tipo, departamento_ids } =
     datosValidados.data;
 
-  // --- CORRECCIÓN FECHA: Estrategia del Mediodía ---
   const fechaSegura = new Date(`${fecha_inicio}T12:00:00Z`);
 
   const dto: ActualizarActividadDTO = {
@@ -323,14 +328,13 @@ export async function accionEditarActividad(
     descripcion: descripcion || undefined,
     tipo: tipo as TipoActividad,
     departamento_ids,
-    // FIX AQUÍ: Convertimos a String ISO
     fecha_inicio: fechaSegura.toISOString(),
   };
 
-  // --- LÓGICA DE REACTIVACIÓN ---
   try {
     const actividadActual = await ActividadesService.obtenerPorId(actividadId);
 
+    // Lógica de reactivación automática si estaba suspendida y cambia la fecha
     if (actividadActual && actividadActual.estado === "suspendido") {
       const fechaDb = new Date(actividadActual.fecha_inicio)
         .toISOString()
@@ -352,4 +356,74 @@ export async function accionEditarActividad(
 
   revalidatePath("/dashboard/actividades");
   redirect("/dashboard/actividades");
+}
+
+// ==========================================
+// 5. NUEVAS FUNCIONES PARA REPORTES
+// ==========================================
+
+// Obtener lista de departamentos para el selector
+export async function obtenerDepartamentos() {
+  const session = await auth();
+  if (!session) return [];
+  try {
+    return await DepartamentosService.obtenerTodos();
+  } catch (error) {
+    console.error("Error obteniendo departamentos:", error);
+    return [];
+  }
+}
+
+// Obtener actividades filtradas por fecha y departamento
+export async function obtenerActividadesReporte(
+  fechaInicio: string,
+  fechaFin: string,
+  departamentoId?: string
+) {
+  const session = await auth();
+  if (!session) return [];
+
+  try {
+    let query = `
+      SELECT 
+        a.id,
+        a.titulo,
+        a.fecha_inicio,
+        a.tipo,
+        a.estado,
+        COALESCE(STRING_AGG(d.nombre, ', '), 'Sin asignar') as departamentos
+      FROM actividades a
+      LEFT JOIN actividades_departamentos ad ON a.id = ad.actividad_id
+      LEFT JOIN departamentos d ON ad.departamento_id = d.id
+      WHERE a.fecha_inicio >= $1 AND a.fecha_inicio <= $2
+    `;
+
+    const params: any[] = [fechaInicio, fechaFin];
+
+    // Si hay filtro de departamento (y no es 'todos'), filtramos por EXISTS
+    // Esto asegura que la actividad pertenezca al departamento seleccionado,
+    // pero sigue mostrando todos los responsables en la columna "departamentos".
+    if (departamentoId && departamentoId !== "todos") {
+      query += ` AND EXISTS (
+        SELECT 1 FROM actividades_departamentos ad2 
+        WHERE ad2.actividad_id = a.id AND ad2.departamento_id = $3
+      )`;
+      params.push(departamentoId);
+    }
+
+    query += `
+      GROUP BY a.id, a.fecha_inicio
+      ORDER BY a.fecha_inicio ASC
+    `;
+
+    const result = await sql(query, params);
+
+    return result.rows.map((row: any) => ({
+      ...row,
+      fecha_inicio: new Date(row.fecha_inicio).toISOString(),
+    }));
+  } catch (error) {
+    console.error("Error obteniendo reporte:", error);
+    return [];
+  }
 }
