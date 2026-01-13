@@ -114,8 +114,8 @@ export default function ReportesPage() {
 
       const titulo =
         departamentoId === "todos"
-          ? "Reporte de gestión institucional"
-          : `Reporte de gestión: ${nombreDeptoSeleccionado}`;
+          ? "Reporte institucional"
+          : `Reporte del departamento: ${nombreDeptoSeleccionado}`;
 
       doc.text(titulo, 14, 45);
 
