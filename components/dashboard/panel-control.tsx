@@ -141,7 +141,7 @@ export function PanelDeControl({
       {/* KPIs */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Total Mes</CardTitle>
+          <CardTitle className="text-sm font-medium">Total mes</CardTitle>
           <CalendarCheck className="h-4 w-4 text-muted-foreground" />
         </CardHeader>
         <CardContent>
@@ -159,7 +159,7 @@ export function PanelDeControl({
       </Card>
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">En Progreso</CardTitle>
+          <CardTitle className="text-sm font-medium">En progreso</CardTitle>
           <Loader2 className="h-4 w-4 text-muted-foreground" />
         </CardHeader>
         <CardContent>
@@ -170,9 +170,9 @@ export function PanelDeControl({
       {/* Lista de Próximas Actividades */}
       <Card className="lg:col-span-2">
         <CardHeader>
-          <CardTitle>Próximas Actividades</CardTitle>
+          <CardTitle>Próximas actividades del mes</CardTitle>
           <CardDescription>
-            Las 5 actividades pendientes más cercanas.
+            Las 5 actividades del mes más cercanas.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -270,7 +270,7 @@ export function PanelDeControl({
       {/* Gráfico */}
       <Card className="lg:col-span-1">
         <CardHeader>
-          <CardTitle>Estado (Mes Actual)</CardTitle>
+          <CardTitle>Estado del actual mes</CardTitle>
         </CardHeader>
         <CardContent className="flex justify-center">
           {!isMounted ? (
