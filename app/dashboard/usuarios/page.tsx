@@ -70,7 +70,7 @@ export default async function GestionUsuariosPage({ searchParams }: PageProps) {
     return (
       <Alert variant="destructive">
         <AlertTriangle className="h-4 w-4" />
-        <AlertTitle>Acceso Denegado</AlertTitle>
+        <AlertTitle>Acceso denegado</AlertTitle>
         <AlertDescription>
           No tienes permisos para acceder a esta sección.
         </AlertDescription>
@@ -94,7 +94,7 @@ export default async function GestionUsuariosPage({ searchParams }: PageProps) {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">
-            Gestión de Usuarios
+            Gestión de usuarios
           </h1>
           <p className="text-lg text-muted-foreground">
             Crear, editar y administrar usuarios del sistema.
@@ -103,7 +103,7 @@ export default async function GestionUsuariosPage({ searchParams }: PageProps) {
         <Button asChild>
           <Link href="/dashboard/usuarios/crear">
             <PlusCircle className="mr-2 h-4 w-4" />
-            Crear Usuario
+            Crear usuario
           </Link>
         </Button>
       </div>
@@ -111,7 +111,7 @@ export default async function GestionUsuariosPage({ searchParams }: PageProps) {
       <Card>
         {/* (Cabecera de Card con Búsqueda sin cambios) */}
         <CardHeader>
-          <CardTitle>Usuarios Registrados</CardTitle>
+          <CardTitle>Usuarios registrados</CardTitle>
           <CardDescription>
             <div className="mt-4">
               <BusquedaUsuarios />
@@ -122,7 +122,7 @@ export default async function GestionUsuariosPage({ searchParams }: PageProps) {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Nombre Completo</TableHead>
+                <TableHead>Nombre completo</TableHead>
                 <TableHead>Cédula</TableHead>
                 <TableHead>Teléfono</TableHead>
                 <TableHead>Email</TableHead>

@@ -39,7 +39,7 @@ export function TabsManager({ defaultTab, children }: TabsManagerProps) {
           </TabsTrigger>
           <TabsTrigger value="lista">
             <ListFilter className="mr-2 h-4 w-4" />
-            Listado y Búsqueda
+            Listado y búsqueda
           </TabsTrigger>
         </TabsList>
       </div>
