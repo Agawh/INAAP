@@ -10,7 +10,6 @@ import {
   CardDescription,
 } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -18,7 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { FileText, Loader2, Filter, Info } from "lucide-react";
+import { FileText, Loader2, Filter, Info, CalendarIcon } from "lucide-react";
 import { toast } from "sonner";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -29,21 +28,32 @@ import {
   obtenerDepartamentos,
 } from "@/app/actions/actividades.actions";
 
+// --- IMPORTACIONES NUEVAS PARA EL CALENDARIO ---
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { cn } from "@/lib/utils";
+
 export default function ReportesPage() {
   const [loading, setLoading] = useState(false);
   const [departamentos, setDepartamentos] = useState<
     { id: string; nombre: string }[]
   >([]);
 
-  // Fechas por defecto
+  // FECHAS POR DEFECTO:
+  // Usamos objetos Date (con hora 12:00 para seguridad) en lugar de strings
   const hoy = new Date();
-  const primerDiaMes = new Date(hoy.getFullYear(), hoy.getMonth(), 1)
-    .toISOString()
-    .split("T")[0];
-  const diaActual = hoy.toISOString().split("T")[0];
+  hoy.setHours(12, 0, 0, 0);
 
-  const [fechaInicio, setFechaInicio] = useState(primerDiaMes);
-  const [fechaFin, setFechaFin] = useState(diaActual);
+  const primerDia = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+  primerDia.setHours(12, 0, 0, 0);
+
+  // Estados ahora manejan objetos Date | undefined
+  const [fechaInicio, setFechaInicio] = useState<Date | undefined>(primerDia);
+  const [fechaFin, setFechaFin] = useState<Date | undefined>(hoy);
   const [departamentoId, setDepartamentoId] = useState("todos");
 
   // Nombre del departamento seleccionado (para mostrar en el resumen)
@@ -63,10 +73,22 @@ export default function ReportesPage() {
 
   const generarPDF = async () => {
     setLoading(true);
+
+    // Validación de fechas
+    if (!fechaInicio || !fechaFin) {
+      toast.error("Por favor seleccione ambas fechas");
+      setLoading(false);
+      return;
+    }
+
     try {
+      // Convertimos las fechas a string YYYY-MM-DD para la base de datos
+      const fechaInicioStr = format(fechaInicio, "yyyy-MM-dd");
+      const fechaFinStr = format(fechaFin, "yyyy-MM-dd");
+
       const datos = await obtenerActividadesReporte(
-        fechaInicio,
-        fechaFin,
+        fechaInicioStr,
+        fechaFinStr,
         departamentoId
       );
 
@@ -88,10 +110,9 @@ export default function ReportesPage() {
         console.warn("Logo no cargado");
       }
 
-      // --- ENCABEZADO OFICIAL (Mejorado) ---
-      // Texto institucional en tamaño 9 (uniforme)
+      // --- ENCABEZADO OFICIAL ---
       doc.setFontSize(9);
-      doc.setTextColor(40); // Gris oscuro elegante
+      doc.setTextColor(40);
       doc.text("REPÚBLICA BOLIVARIANA DE VENEZUELA", 105, 16, {
         align: "center",
       });
@@ -99,50 +120,46 @@ export default function ReportesPage() {
         align: "center",
       });
 
-      // Nombre de la unidad un poco más destacado pero sutil
       doc.setFont("times", "bold");
       doc.text("INATUR - UNIDAD ESTADAL TÁCHIRA", 105, 26, { align: "center" });
 
-      // Línea separadora fina
       doc.setDrawColor(200);
       doc.setLineWidth(0.1);
       doc.line(14, 32, 196, 32);
 
       // --- TÍTULO Y SUBTÍTULO ---
-      doc.setFontSize(14); // Tamaño título principal
-      doc.setTextColor(0); // Negro
+      doc.setFontSize(14);
+      doc.setTextColor(0);
 
       const titulo =
         departamentoId === "todos"
-          ? "Reporte institucional"
-          : `Reporte del departamento: ${nombreDeptoSeleccionado}`;
+          ? "Reporte de gestión institucional"
+          : `Reporte de gestión: ${nombreDeptoSeleccionado}`;
 
       doc.text(titulo, 14, 45);
 
-      // Rango de fechas (subtítulo)
+      // Rango de fechas
       doc.setFontSize(11);
       doc.setFont("times", "normal");
       doc.setTextColor(60);
-      const rango = `Desde el ${format(new Date(fechaInicio), "dd 'de' MMMM", {
+      const rango = `Desde el ${format(fechaInicio, "dd 'de' MMMM", {
         locale: es,
-      })} al ${format(new Date(fechaFin), "dd 'de' MMMM 'de' yyyy", {
-        locale: es,
-      })}`;
+      })} al ${format(fechaFin, "dd 'de' MMMM 'de' yyyy", { locale: es })}`;
       doc.text(rango, 14, 52);
 
       // --- TABLA DE DATOS ---
       const filas = datos.map((act: any) => [
+        // Convertimos la fecha UTC de la BD a fecha local segura
+        // Al sumar horas, nos aseguramos que caiga en el día correcto visualmente
         format(new Date(act.fecha_inicio), "dd/MM/yy"),
         act.titulo,
         act.tipo === "operativa" ? "Operativa" : "Efeméride",
         act.departamentos || "General",
-        // Capitalizamos solo la primera letra del estado
         act.estado.charAt(0).toUpperCase() + act.estado.slice(1).toLowerCase(),
       ]);
 
       autoTable(doc, {
         startY: 60,
-        // Encabezados en mayúsculas sostenidas estándar
         head: [["FECHA", "ACTIVIDAD", "TIPO", "RESPONSABLE", "ESTADO"]],
         body: filas,
         theme: "plain",
@@ -163,14 +180,13 @@ export default function ReportesPage() {
           fontSize: 9,
         },
         columnStyles: {
-          0: { cellWidth: 20, fontStyle: "bold" }, // Fecha
-          1: { cellWidth: "auto" }, // Actividad
-          2: { cellWidth: 25 }, // Tipo
-          3: { cellWidth: 40 }, // Responsable (más ancho)
-          4: { cellWidth: 25 }, // Estado
+          0: { cellWidth: 20, fontStyle: "bold" },
+          1: { cellWidth: "auto" },
+          2: { cellWidth: 25 },
+          3: { cellWidth: 40 },
+          4: { cellWidth: 25 },
         },
         didDrawCell: (data) => {
-          // Líneas horizontales grises finas para separar filas
           if (data.section === "head" || data.section === "body") {
             doc.setDrawColor(220);
             doc.setLineWidth(0.1);
@@ -200,7 +216,7 @@ export default function ReportesPage() {
         );
       }
 
-      const nombreArchivo = `Reporte_${departamentoId}_${fechaFin}.pdf`;
+      const nombreArchivo = `Reporte_${departamentoId}_${fechaFinStr}.pdf`;
       doc.save(nombreArchivo);
       toast.success("Reporte descargado correctamente");
     } catch (error) {
@@ -215,10 +231,10 @@ export default function ReportesPage() {
     <div className="p-6 max-w-5xl mx-auto space-y-8">
       <div>
         <h1 className="text-3xl font-bold tracking-tight text-slate-900">
-          Reportes
+          Reportes de Gestión
         </h1>
         <p className="text-slate-500 mt-2">
-          Generar documentos en formato PDF de las actividades realizadas.
+          Generar documentos PDF oficiales de las actividades realizadas.
         </p>
       </div>
 
@@ -228,7 +244,7 @@ export default function ReportesPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-slate-800">
               <Filter className="h-5 w-5" />
-              Filtros del reporte
+              Filtros del Reporte
             </CardTitle>
             <CardDescription className="text-slate-500">
               Seleccione los parámetros
@@ -256,24 +272,86 @@ export default function ReportesPage() {
                 </Select>
               </div>
 
+              {/* CALENDARIOS CON LÓGICA DE 12:00 PM */}
               <div className="grid grid-cols-2 gap-4">
+                {/* FECHA DESDE */}
                 <div className="space-y-2">
                   <Label className="text-slate-700">Desde</Label>
-                  <Input
-                    type="date"
-                    className="!bg-white border-slate-300 text-slate-800"
-                    value={fechaInicio}
-                    onChange={(e) => setFechaInicio(e.target.value)}
-                  />
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant={"outline"}
+                        className={cn(
+                          "w-full justify-start text-left font-normal border-slate-300 !bg-white text-slate-800",
+                          !fechaInicio && "text-muted-foreground"
+                        )}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {fechaInicio ? (
+                          format(fechaInicio, "dd/MM/yyyy")
+                        ) : (
+                          <span>Seleccione</span>
+                        )}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent
+                      className="w-auto p-0 !bg-white"
+                      align="start"
+                    >
+                      <Calendar
+                        mode="single"
+                        selected={fechaInicio}
+                        onSelect={(date) => {
+                          if (date) {
+                            const adjustedDate = new Date(date);
+                            adjustedDate.setHours(12, 0, 0, 0); // ESTRATEGIA DEL MEDIODÍA
+                            setFechaInicio(adjustedDate);
+                          }
+                        }}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
                 </div>
+
+                {/* FECHA HASTA */}
                 <div className="space-y-2">
                   <Label className="text-slate-700">Hasta</Label>
-                  <Input
-                    type="date"
-                    className="!bg-white border-slate-300 text-slate-800"
-                    value={fechaFin}
-                    onChange={(e) => setFechaFin(e.target.value)}
-                  />
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant={"outline"}
+                        className={cn(
+                          "w-full justify-start text-left font-normal border-slate-300 !bg-white text-slate-800",
+                          !fechaFin && "text-muted-foreground"
+                        )}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {fechaFin ? (
+                          format(fechaFin, "dd/MM/yyyy")
+                        ) : (
+                          <span>Seleccione</span>
+                        )}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent
+                      className="w-auto p-0 !bg-white"
+                      align="start"
+                    >
+                      <Calendar
+                        mode="single"
+                        selected={fechaFin}
+                        onSelect={(date) => {
+                          if (date) {
+                            const adjustedDate = new Date(date);
+                            adjustedDate.setHours(12, 0, 0, 0); // ESTRATEGIA DEL MEDIODÍA
+                            setFechaFin(adjustedDate);
+                          }
+                        }}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
                 </div>
               </div>
             </div>
@@ -296,13 +374,12 @@ export default function ReportesPage() {
           </CardContent>
         </Card>
 
-        {/* PANEL DERECHO: RESUMEN (Antes "Vista Previa") */}
-        {/* Ahora muestra información útil en tiempo real */}
+        {/* PANEL DERECHO: RESUMEN */}
         <Card className="md:col-span-7 !bg-white border border-slate-200 shadow-sm flex flex-col justify-between">
           <CardHeader className="pb-2">
             <CardTitle className="text-lg flex items-center gap-2 text-slate-700">
               <Info className="h-5 w-5" />
-              Resumen del documento
+              Resumen del Documento
             </CardTitle>
             <CardDescription>
               Detalles del archivo que se va a generar
@@ -310,13 +387,14 @@ export default function ReportesPage() {
           </CardHeader>
 
           <CardContent className="flex-1 flex flex-col justify-center gap-6 py-6 px-8">
-            {/* Visualización simulada del reporte */}
             <div className="border border-slate-100 rounded-lg p-6 bg-slate-50/50 space-y-4">
               <div className="flex justify-between items-center border-b border-slate-200 pb-2">
                 <span className="text-xs font-semibold uppercase text-slate-400">
-                  Tipo de formato
+                  Tipo de Reporte
                 </span>
-                <span className="text-sm font-medium text-slate-800">PDF</span>
+                <span className="text-sm font-medium text-slate-800">
+                  Oficial (PDF)
+                </span>
               </div>
 
               <div className="flex justify-between items-center border-b border-slate-200 pb-2">
@@ -333,8 +411,12 @@ export default function ReportesPage() {
                   Período
                 </span>
                 <span className="text-sm text-slate-600">
-                  {format(new Date(fechaInicio), "dd/MM/yy")} —{" "}
-                  {format(new Date(fechaFin), "dd/MM/yy")}
+                  {fechaInicio && fechaFin
+                    ? `${format(fechaInicio, "dd/MM/yy")} — ${format(
+                        fechaFin,
+                        "dd/MM/yy"
+                      )}`
+                    : "Seleccione fechas"}
                 </span>
               </div>
 

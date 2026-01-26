@@ -51,7 +51,7 @@ export default async function PaginaPerfil() {
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Mi Perfil</h1>
+        <h1 className="text-3xl font-bold tracking-tight">Mi perfil</h1>
         <p className="text-lg text-muted-foreground">
           Gestiona tu información personal y tus preferencias.
         </p>
