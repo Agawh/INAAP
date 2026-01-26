@@ -44,7 +44,7 @@ function traducirRol(rol: string) {
   }
 }
 
-// Tipamos searchParams como una Promise (Next.js 15+)
+// Definición correcta de tipos para Next.js 15+
 type PageProps = {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 };
@@ -52,7 +52,7 @@ type PageProps = {
 export default async function GestionUsuariosPage({ searchParams }: PageProps) {
   const session = await auth();
 
-  // Hacemos 'await' de los searchParams
+  // Esperamos los parámetros de búsqueda
   const params = await searchParams;
   const filtro = typeof params.q === "string" ? params.q : "";
 
@@ -85,19 +85,19 @@ export default async function GestionUsuariosPage({ searchParams }: PageProps) {
   const deptMap = new Map(departamentos.map((d) => [d.id, d.nombre]));
 
   return (
-    // Agregamos max-w-full para evitar que la página entera crezca horizontalmente
-    <div className="flex flex-col gap-6 w-full max-w-full">
+    // CONTENEDOR PRINCIPAL: Limitamos el ancho máximo para evitar desbordes globales
+    <div className="flex flex-col gap-6 w-full max-w-[90vw] md:max-w-full mx-auto">
       {/* Cabecera de la página */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
             Gestión de usuarios
           </h1>
-          <p className="text-lg text-muted-foreground">
+          <p className="text-sm sm:text-lg text-muted-foreground">
             Crear, editar y administrar usuarios del sistema.
           </p>
         </div>
-        <Button asChild>
+        <Button asChild className="w-full sm:w-auto">
           <Link href="/dashboard/usuarios/crear">
             <PlusCircle className="mr-2 h-4 w-4" />
             Crear usuario
@@ -105,26 +105,26 @@ export default async function GestionUsuariosPage({ searchParams }: PageProps) {
         </Button>
       </div>
 
-      <Card className="w-full">
+      {/* TARJETA: overflow-hidden evita que el contenido rompa los bordes redondeados */}
+      <Card className="w-full overflow-hidden">
         <CardHeader>
           <CardTitle>Usuarios registrados</CardTitle>
           <CardDescription>
-            <div className="mt-4">
+            <div className="mt-4 max-w-sm">
               <BusquedaUsuarios />
             </div>
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          {/* --- SOLUCIÓN ROBUSTA DE SCROLL --- */}
-          {/* 1. Contenedor que fuerza el scroll si el hijo es muy grande */}
-          <div className="w-full overflow-x-auto rounded-md border">
-            {/* 2. Asignamos un ancho mínimo a la tabla (min-w-[1000px]) 
-                   Esto obliga a que aparezca la barra de scroll en pantallas pequeñas 
-                   en lugar de comprimir la tabla o desbordar la página. */}
-            <Table className="min-w-[1000px]">
+
+        {/* CARD CONTENT: Aquí es donde ocurre la magia del scroll */}
+        <CardContent className="p-0 sm:p-6 overflow-hidden">
+          <div className="w-full overflow-x-auto pb-4">
+            {/* TABLE: min-w asegura que no se aplaste. 
+                Si la pantalla es pequeña, aparecerá el scroll horizontal */}
+            <Table className="min-w-[800px] lg:min-w-full">
               <TableHeader>
                 <TableRow>
-                  <TableHead>Nombre completo</TableHead>
+                  <TableHead className="w-[200px]">Nombre completo</TableHead>
                   <TableHead>Cédula</TableHead>
                   <TableHead>Teléfono</TableHead>
                   <TableHead>Email</TableHead>
@@ -144,11 +144,20 @@ export default async function GestionUsuariosPage({ searchParams }: PageProps) {
                 {usuarios.map((usuario) => (
                   <TableRow key={usuario.id}>
                     <TableCell className="font-medium">
-                      {usuario.nombre_completo}
+                      <div className="flex flex-col">
+                        <span>{usuario.nombre_completo}</span>
+                        {/* En móvil mostramos el email debajo del nombre para ahorrar espacio */}
+                        <span className="text-xs text-muted-foreground sm:hidden">
+                          {usuario.email}
+                        </span>
+                      </div>
                     </TableCell>
                     <TableCell>{usuario.cedula}</TableCell>
                     <TableCell>{usuario.telefono || "N/A"}</TableCell>
-                    <TableCell>{usuario.email}</TableCell>
+                    {/* Ocultamos email en columnas pequeñas porque ya lo pusimos bajo el nombre */}
+                    <TableCell className="hidden sm:table-cell">
+                      {usuario.email}
+                    </TableCell>
                     <TableCell>
                       <Badge
                         variant={
@@ -156,11 +165,15 @@ export default async function GestionUsuariosPage({ searchParams }: PageProps) {
                             ? "default"
                             : "secondary"
                         }
+                        className="whitespace-nowrap"
                       >
                         {traducirRol(usuario.rol)}
                       </Badge>
                     </TableCell>
-                    <TableCell>
+                    <TableCell
+                      className="max-w-[150px] truncate"
+                      title={deptMap.get(usuario.departamento_id)}
+                    >
                       {deptMap.get(usuario.departamento_id) || "N/A"}
                     </TableCell>
                     <TableCell className="text-right">
