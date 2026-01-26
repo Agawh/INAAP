@@ -40,7 +40,7 @@ export default async function PaginaPerfil() {
     return (
       <Alert variant="destructive">
         <AlertTriangle className="h-4 w-4" />
-        <AlertTitle>Error de Usuario</AlertTitle>
+        <AlertTitle>Error de usuario</AlertTitle>
         <AlertDescription>
           No se pudieron cargar los datos de tu perfil.
         </AlertDescription>

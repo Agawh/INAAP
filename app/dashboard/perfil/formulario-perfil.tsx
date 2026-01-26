@@ -120,14 +120,14 @@ export function FormularioPerfil({
       <div className="lg:col-span-1">
         <Card>
           <CardHeader>
-            <CardTitle>Información Personal</CardTitle>
+            <CardTitle>Información personal</CardTitle>
             <CardDescription>
               Tus datos de usuario. (Solo lectura)
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid gap-1.5">
-              <Label>Nombre Completo</Label>
+              <Label>Nombre completo</Label>
               <Input value={usuario.nombre_completo} readOnly disabled />
             </div>
             <div className="grid gap-1.5">
@@ -135,7 +135,7 @@ export function FormularioPerfil({
               <Input value={usuario.cedula} readOnly disabled />
             </div>
             <div className="grid gap-1.5">
-              <Label>Correo Electrónico</Label>
+              <Label>Correo electrónico</Label>
               <Input value={usuario.email} readOnly disabled />
             </div>
           </CardContent>
@@ -148,7 +148,7 @@ export function FormularioPerfil({
         <form action={dispatchNotif}>
           <Card>
             <CardHeader>
-              <CardTitle>Preferencias de Notificación</CardTitle>
+              <CardTitle>Preferencias de notificación</CardTitle>
               <CardDescription>
                 Elige cómo quieres recibir alertas sobre las actividades.
               </CardDescription>
@@ -176,7 +176,7 @@ export function FormularioPerfil({
                     Notificaciones por Telegram
                   </Label>
                   <p className="text-sm text-muted-foreground">
-                    Recibir alertas en tu chat de Telegram. (Próximamente)
+                    Recibir alertas en tu chat de Telegram.
                   </p>
                 </div>
                 <Switch
@@ -197,7 +197,7 @@ export function FormularioPerfil({
         <form ref={formPassRef} action={dispatchPass}>
           <Card>
             <CardHeader>
-              <CardTitle>Cambiar Contraseña</CardTitle>
+              <CardTitle>Cambiar contraseña</CardTitle>
               <CardDescription>
                 Actualiza tu contraseña de acceso.
               </CardDescription>
@@ -215,7 +215,7 @@ export function FormularioPerfil({
                 )}
 
               <div className="grid gap-2">
-                <Label htmlFor="password_actual">Contraseña Actual</Label>
+                <Label htmlFor="password_actual">Contraseña actual</Label>
                 <Input
                   id="password_actual"
                   name="password_actual"
@@ -229,7 +229,7 @@ export function FormularioPerfil({
                 )}
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="password_nueva">Nueva Contraseña</Label>
+                <Label htmlFor="password_nueva">Nueva contraseña</Label>
                 <Input
                   id="password_nueva"
                   name="password_nueva"

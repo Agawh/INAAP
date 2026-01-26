@@ -100,12 +100,12 @@ export function FormularioPerfil({
         {/* Tarjeta Info Personal */}
         <Card>
           <CardHeader>
-            <CardTitle>Información Personal</CardTitle>
+            <CardTitle>Información personal</CardTitle>
             <CardDescription>Tus datos de usuario.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid gap-1.5">
-              <Label>Nombre Completo</Label>
+              <Label>Nombre completo</Label>
               <Input value={usuario.nombre_completo} readOnly disabled />
             </div>
             <div className="grid gap-1.5">
@@ -113,7 +113,7 @@ export function FormularioPerfil({
               <Input value={usuario.cedula} readOnly disabled />
             </div>
             <div className="grid gap-1.5">
-              <Label>Correo Electrónico</Label>
+              <Label>Correo electrónico</Label>
               <Input value={usuario.email} readOnly disabled />
             </div>
           </CardContent>
@@ -123,7 +123,7 @@ export function FormularioPerfil({
         <Card className="border-blue-200 bg-blue-50 dark:bg-blue-950/20 dark:border-blue-900">
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2 text-blue-800 dark:text-blue-300">
-              <Calendar className="h-4 w-4" /> Sincronizar Calendario
+              <Calendar className="h-4 w-4" /> Sincronizar calendario
             </CardTitle>
             <CardDescription className="text-xs">
               Copia este enlace y agrégalo a tu Google Calendar u Outlook para
@@ -159,7 +159,7 @@ export function FormularioPerfil({
         {/* Tarjeta Notificaciones (Solo lectura) */}
         <Card>
           <CardHeader>
-            <CardTitle>Preferencias de Notificación</CardTitle>
+            <CardTitle>Preferencias de notificación</CardTitle>
             <CardDescription>
               Canales habilitados para recibir alertas sobre las actividades.
             </CardDescription>
@@ -195,7 +195,7 @@ export function FormularioPerfil({
         <form ref={formPassRef} action={dispatchPass}>
           <Card>
             <CardHeader>
-              <CardTitle>Cambiar Contraseña</CardTitle>
+              <CardTitle>Cambiar contraseña</CardTitle>
               <CardDescription>
                 Actualiza tu contraseña de acceso.
               </CardDescription>
@@ -211,7 +211,7 @@ export function FormularioPerfil({
                   </Alert>
                 )}
               <div className="grid gap-2">
-                <Label htmlFor="password_actual">Contraseña Actual</Label>
+                <Label htmlFor="password_actual">Contraseña actual</Label>
                 <Input
                   id="password_actual"
                   name="password_actual"
@@ -225,7 +225,7 @@ export function FormularioPerfil({
                 )}
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="password_nueva">Nueva Contraseña</Label>
+                <Label htmlFor="password_nueva">Nueva contraseña</Label>
                 <Input
                   id="password_nueva"
                   name="password_nueva"
