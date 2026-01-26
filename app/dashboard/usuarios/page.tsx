@@ -1,4 +1,3 @@
-// /app/dashboard/usuarios/page.tsx
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
@@ -32,7 +31,6 @@ import {
 import { BusquedaUsuarios } from "@/components/busqueda-usuarios";
 import { BotonEliminarUsuario } from "@/components/boton-eliminar-usuario";
 
-// (función traducirRol sin cambios)
 function traducirRol(rol: string) {
   switch (rol) {
     case "superusuario":
@@ -46,8 +44,7 @@ function traducirRol(rol: string) {
   }
 }
 
-// --- ¡CORRECCIÓN DE TIPO! ---
-// Tipamos searchParams como una Promise
+// Tipamos searchParams como una Promise (Next.js 15+)
 type PageProps = {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 };
@@ -55,7 +52,6 @@ type PageProps = {
 export default async function GestionUsuariosPage({ searchParams }: PageProps) {
   const session = await auth();
 
-  // --- ¡CORRECCIÓN DEL ERROR! ---
   // Hacemos 'await' de los searchParams
   const params = await searchParams;
   const filtro = typeof params.q === "string" ? params.q : "";
@@ -90,7 +86,7 @@ export default async function GestionUsuariosPage({ searchParams }: PageProps) {
 
   return (
     <div className="flex flex-col gap-6">
-      {/* (Cabecera de la página sin cambios) */}
+      {/* Cabecera de la página */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">
@@ -109,7 +105,6 @@ export default async function GestionUsuariosPage({ searchParams }: PageProps) {
       </div>
 
       <Card>
-        {/* (Cabecera de Card con Búsqueda sin cambios) */}
         <CardHeader>
           <CardTitle>Usuarios registrados</CardTitle>
           <CardDescription>
@@ -119,6 +114,7 @@ export default async function GestionUsuariosPage({ searchParams }: PageProps) {
           </CardDescription>
         </CardHeader>
         <CardContent>
+          {/* --- FIX: Contenedor con scroll horizontal para evitar desbordes --- */}
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
