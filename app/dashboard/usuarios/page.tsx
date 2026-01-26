@@ -85,7 +85,8 @@ export default async function GestionUsuariosPage({ searchParams }: PageProps) {
   const deptMap = new Map(departamentos.map((d) => [d.id, d.nombre]));
 
   return (
-    <div className="flex flex-col gap-6">
+    // Agregamos max-w-full para evitar que la página entera crezca horizontalmente
+    <div className="flex flex-col gap-6 w-full max-w-full">
       {/* Cabecera de la página */}
       <div className="flex items-center justify-between">
         <div>
@@ -104,7 +105,7 @@ export default async function GestionUsuariosPage({ searchParams }: PageProps) {
         </Button>
       </div>
 
-      <Card>
+      <Card className="w-full">
         <CardHeader>
           <CardTitle>Usuarios registrados</CardTitle>
           <CardDescription>
@@ -114,9 +115,13 @@ export default async function GestionUsuariosPage({ searchParams }: PageProps) {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {/* --- FIX: Contenedor con scroll horizontal para evitar desbordes --- */}
-          <div className="overflow-x-auto">
-            <Table>
+          {/* --- SOLUCIÓN ROBUSTA DE SCROLL --- */}
+          {/* 1. Contenedor que fuerza el scroll si el hijo es muy grande */}
+          <div className="w-full overflow-x-auto rounded-md border">
+            {/* 2. Asignamos un ancho mínimo a la tabla (min-w-[1000px]) 
+                   Esto obliga a que aparezca la barra de scroll en pantallas pequeñas 
+                   en lugar de comprimir la tabla o desbordar la página. */}
+            <Table className="min-w-[1000px]">
               <TableHeader>
                 <TableRow>
                   <TableHead>Nombre completo</TableHead>
