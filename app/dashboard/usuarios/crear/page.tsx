@@ -28,7 +28,7 @@ export default async function CrearUsuarioPage() {
     <div className="flex flex-col gap-6">
       <div>
         <h1 className="text-3xl font-bold tracking-tight">
-          Crear Nuevo Usuario
+          Crear nuevo usuario
         </h1>
         <p className="text-lg text-muted-foreground">
           Complete los campos para registrar un nuevo usuario en el sistema.
