@@ -45,7 +45,7 @@ function BotonEditar() {
       ) : (
         <>
           <Save className="mr-2 h-4 w-4" />
-          Actualizar Usuario
+          Actualizar usuario
         </>
       )}
     </Button>

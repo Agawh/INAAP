@@ -47,7 +47,7 @@ export default async function EditarUsuarioPage({
   // 3. Si el usuario no existe
   if (!usuario) {
     console.error(
-      `[DEBUG] No se encontró ningún usuario con el ID: ${idParaEditar}`
+      `[DEBUG] No se encontró ningún usuario con el ID: ${idParaEditar}`,
     );
     return (
       <Alert variant="destructive">
@@ -64,7 +64,7 @@ export default async function EditarUsuarioPage({
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Editar Usuario</h1>
+        <h1 className="text-3xl font-bold tracking-tight">Editar usuario</h1>
         <p className="text-lg text-muted-foreground">
           Modificar los datos de{" "}
           <span className="font-semibold">{usuario.nombre_completo}</span>.
